@@ -6943,6 +6943,7 @@ h6 {
   .header-main {
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 12px;
+    padding: 10px 14px;
   }
 
   .utility-bar {
@@ -7019,7 +7020,7 @@ h6 {
     display: inline-flex;
     grid-column: 1;
     align-items: center;
-    max-width: min(156px, calc(100vw - 150px));
+    max-width: min(156px, calc(100vw - 138px));
   }
 
   .header-actions {
