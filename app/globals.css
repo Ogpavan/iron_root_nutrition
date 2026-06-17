@@ -1535,6 +1535,7 @@ h6 {
 
 .featured-products {
   padding-top: 34px;
+  overflow-x: clip;
 }
 
 .section-header {
@@ -6980,6 +6981,11 @@ h6 {
     line-height: 1;
   }
 
+  .header-strip-motion {
+    clip-path: none !important;
+    overflow: visible;
+  }
+
   .header-search-bar {
     grid-template-columns: 36px minmax(0, 1fr) 32px 36px;
     min-height: 52px;
@@ -7110,7 +7116,7 @@ h6 {
   }
 
   .hero-shell {
-    padding: 104px 10px 0;
+    padding: 104px 0 0;
   }
 
   .hero {

@@ -38,8 +38,8 @@ const stagger = {
 };
 
 const productReveal = {
-  hidden: { opacity: 0, x: 38 },
-  show: { opacity: 1, x: 0 }
+  hidden: { opacity: 0, y: 22 },
+  show: { opacity: 1, y: 0 }
 };
 
 const fitnessCopyStagger = {
@@ -108,9 +108,7 @@ function Hero() {
     <section className="hero-shell" aria-labelledby="hero-title" ref={heroRef}>
       <motion.div
         className="hero"
-        initial={{ opacity: 0, scale: 0.98 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.8, ease: "easeOut" }}
+        initial={false}
       >
         <motion.div
           className="hero-image-layer"
