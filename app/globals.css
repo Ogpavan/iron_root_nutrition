@@ -6946,10 +6946,37 @@ h6 {
   }
 
   .utility-bar {
-    min-height: auto;
-    max-height: none;
-    padding: 8px 16px;
-    gap: 8px;
+    display: flex;
+    min-height: 38px;
+    max-height: 38px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 0 12px;
+    white-space: nowrap;
+  }
+
+  .announcement-slot {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .utility-bar p {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    color: inherit;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 9px;
+    line-height: 1;
+  }
+
+  .utility-support {
+    flex: 0 0 auto;
+    font-size: 10px;
+    line-height: 1;
   }
 
   .header-search-bar {
@@ -7639,20 +7666,6 @@ h6 {
 
   .utility-bar {
     grid-template-columns: minmax(0, 1fr) auto;
-    padding: 8px 12px;
-    font-size: 9px;
-  }
-
-  .utility-bar p {
-    min-width: 0;
-    font-size: 10px;
-    line-height: 1.25;
-  }
-
-  .utility-support {
-    justify-self: end;
-    font-size: 10px;
-    line-height: 1;
   }
 
   .utility-logo img {
