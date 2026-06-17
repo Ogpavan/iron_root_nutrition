@@ -9,9 +9,6 @@ import {
 import {
   ArrowRight,
   ChevronRight,
-  MessageCircle,
-  Phone,
-  Star,
 } from "lucide-react";
 import Image from "next/image";
 import { useRef } from "react";
@@ -619,11 +616,6 @@ export default function HomePage({
         <IceTeaBanner products={productCatalog} />
         <LatestNews />
       </main>
-      <div className="floating-contact" aria-hidden="true">
-        <Phone size={16} />
-        <MessageCircle size={16} />
-        <Star size={16} />
-      </div>
     </>
   );
 }

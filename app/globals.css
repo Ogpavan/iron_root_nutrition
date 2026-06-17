@@ -523,7 +523,7 @@ h6 {
 
 .header-main {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 30px;
   max-width: none;
@@ -562,6 +562,7 @@ h6 {
 .mobile-header-logo {
   display: none;
   line-height: 0;
+  min-width: 0;
 }
 
 .mobile-header-logo img {
@@ -574,6 +575,7 @@ h6 {
   display: flex;
   align-items: center;
   justify-content: flex-start;
+  min-width: 0;
   grid-column: 1;
   gap: 28px;
   color: #ffffff;
@@ -1351,6 +1353,7 @@ h6 {
   grid-column: 2;
   align-items: center;
   justify-content: flex-end;
+  min-width: 0;
   gap: 20px;
 }
 
@@ -6682,20 +6685,6 @@ h6 {
   }
 }
 
-.floating-contact {
-  position: fixed;
-  right: 14px;
-  bottom: 14px;
-  z-index: 40;
-  display: none;
-  gap: 6px;
-  padding: 8px;
-  border-radius: 999px;
-  background: #111111;
-  color: #ffffff;
-  box-shadow: 0 18px 38px rgba(0, 0, 0, 0.18);
-}
-
 @media (max-width: 1100px) {
   .footer-main {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -6873,7 +6862,8 @@ h6 {
   }
 
   .header-main {
-    grid-template-columns: auto auto;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 12px;
   }
 
   .header-search-bar {
@@ -6916,10 +6906,12 @@ h6 {
     display: inline-flex;
     grid-column: 1;
     align-items: center;
+    max-width: min(156px, calc(100vw - 150px));
   }
 
   .header-actions {
     grid-column: 2;
+    justify-self: end;
   }
 
   .utility-logo img {
@@ -7551,10 +7543,6 @@ h6 {
     gap: 6px;
     padding: 18px;
     text-align: center;
-  }
-
-  .floating-contact {
-    display: flex;
   }
 }
 
