@@ -4,7 +4,7 @@ import { getAllProducts, getWooCategories } from "@/lib/woocommerce";
 const jsonLd = {
   "@context": "https://schema.org",
   "@type": "Organization",
-  name: "Bolero Advanced Hydration",
+  name: "IronRoot Nutrition",
   url: "https://ironrootnutrition.local",
   logo: "https://ironrootnutrition.local/assets/bolero/logo.svg",
   sameAs: [

@@ -9,9 +9,11 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
+import AccountOtpModal from "@/components/AccountOtpModal";
 import { useCart } from "@/components/cart/CartProvider";
 import SiteHeader from "@/components/SiteHeader";
+import { accountStorageKey, normalizeStoredUser, type AuthUser } from "@/lib/account-auth";
 import type { WooCatalogCategory } from "@/lib/woocommerce";
 
 type CheckoutPageProps = {
@@ -136,6 +138,14 @@ function buildCheckoutPayload(formData: FormData, items: CheckoutPayload["items"
   };
 }
 
+function RequiredLabel({ htmlFor, children }: { htmlFor: string; children: string }) {
+  return (
+    <label htmlFor={htmlFor}>
+      {children} <span className="checkout-required" aria-hidden="true">*</span>
+    </label>
+  );
+}
+
 function loadRazorpayScript() {
   return new Promise<boolean>((resolve) => {
     if (typeof window === "undefined") {
@@ -163,9 +173,33 @@ export default function CheckoutPage({ categories }: CheckoutPageProps) {
   const [complete, setComplete] = useState(false);
   const [paymentError, setPaymentError] = useState("");
   const [paymentProcessing, setPaymentProcessing] = useState(false);
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
+  const [authReady, setAuthReady] = useState(false);
+  const [authOpen, setAuthOpen] = useState(false);
 
   const total = subtotal;
   const includedTax = Math.round((total * 0.18) / 1.18);
+
+  useEffect(() => {
+    const stored = window.localStorage.getItem(accountStorageKey);
+
+    if (!stored) {
+      setAuthReady(true);
+      setAuthOpen(true);
+      return;
+    }
+
+    try {
+      const nextUser = normalizeStoredUser(JSON.parse(stored));
+      setAuthUser(nextUser);
+      setAuthOpen(!nextUser);
+    } catch {
+      window.localStorage.removeItem(accountStorageKey);
+      setAuthOpen(true);
+    } finally {
+      setAuthReady(true);
+    }
+  }, []);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -283,7 +317,7 @@ export default function CheckoutPage({ categories }: CheckoutPageProps) {
   return (
     <>
       <SiteHeader variant="solid" categories={categories} />
-      <main className="checkout-page shopify-checkout">
+      <main className={`checkout-page shopify-checkout${complete ? " is-complete" : ""}`}>
         <div className="checkout-shell">
           <div className="checkout-main">
             <section className="checkout-brand-block" aria-labelledby="checkout-title">
@@ -293,11 +327,20 @@ export default function CheckoutPage({ categories }: CheckoutPageProps) {
               <h1 id="checkout-title">Checkout</h1>
             </section>
 
-            {!isHydrated ? (
+            {!authReady || !isHydrated ? (
               <section className="checkout-empty">
                 <ShoppingBag size={32} aria-hidden="true" />
                 <h2>Loading checkout</h2>
-                <p>Loading cart.</p>
+                <p>Loading account and cart.</p>
+              </section>
+            ) : !authUser ? (
+              <section className="checkout-empty checkout-auth-gate">
+                <LockKeyhole size={32} aria-hidden="true" />
+                <h2>Login required</h2>
+                <p>Sign in to continue to checkout and place your order.</p>
+                <button type="button" onClick={() => setAuthOpen(true)}>
+                  Login / Sign up
+                </button>
               </section>
             ) : complete ? (
               <section className="checkout-success" aria-label="Order confirmation">
@@ -320,7 +363,7 @@ export default function CheckoutPage({ categories }: CheckoutPageProps) {
                   </div>
                   <div className="checkout-grid">
                     <div>
-                      <label htmlFor="email">Email or phone</label>
+                      <RequiredLabel htmlFor="email">Email or phone</RequiredLabel>
                       <input id="email" name="email" type="text" required />
                     </div>
                   </div>
@@ -338,7 +381,7 @@ export default function CheckoutPage({ categories }: CheckoutPageProps) {
                   </div>
                   <div className="checkout-grid">
                     <div>
-                      <label htmlFor="country">Country/Region</label>
+                      <RequiredLabel htmlFor="country">Country/Region</RequiredLabel>
                       <select id="country" name="country" defaultValue="India" required>
                         <option>India</option>
                       </select>
@@ -346,17 +389,17 @@ export default function CheckoutPage({ categories }: CheckoutPageProps) {
                   </div>
                   <div className="checkout-grid two-up">
                     <div>
-                      <label htmlFor="first-name">First name</label>
+                      <RequiredLabel htmlFor="first-name">First name</RequiredLabel>
                       <input id="first-name" name="firstName" type="text" required />
                     </div>
                     <div>
                       <label htmlFor="last-name">Last name</label>
-                      <input id="last-name" name="lastName" type="text" required />
+                      <input id="last-name" name="lastName" type="text" />
                     </div>
                   </div>
                   <div className="checkout-grid">
                     <div>
-                      <label htmlFor="address1">Address</label>
+                      <RequiredLabel htmlFor="address1">Address</RequiredLabel>
                       <input id="address1" name="address1" type="text" required />
                     </div>
                     <div>
@@ -366,21 +409,21 @@ export default function CheckoutPage({ categories }: CheckoutPageProps) {
                   </div>
                   <div className="checkout-grid three-up">
                     <div>
-                      <label htmlFor="city">City</label>
+                      <RequiredLabel htmlFor="city">City</RequiredLabel>
                       <input id="city" name="city" type="text" required />
                     </div>
                     <div>
-                      <label htmlFor="state">State</label>
+                      <RequiredLabel htmlFor="state">State</RequiredLabel>
                       <input id="state" name="state" type="text" required />
                     </div>
                     <div>
-                      <label htmlFor="pincode">PIN code</label>
+                      <RequiredLabel htmlFor="pincode">PIN code</RequiredLabel>
                       <input id="pincode" name="pincode" type="text" required />
                     </div>
                   </div>
                   <div className="checkout-grid">
                     <div>
-                      <label htmlFor="mobile">Phone</label>
+                      <RequiredLabel htmlFor="mobile">Phone</RequiredLabel>
                       <input id="mobile" name="mobile" type="tel" required />
                     </div>
                   </div>
@@ -411,7 +454,7 @@ export default function CheckoutPage({ categories }: CheckoutPageProps) {
             ) : (
               <section className="checkout-empty">
                 <ShoppingBag size={32} aria-hidden="true" />
-                <h2>Your cart is empty</h2>
+                <h2>Loading checkout</h2>
                 <p>Add products first.</p>
                 <button type="button" onClick={() => router.push("/all-products")}>
                   Continue shopping
@@ -499,6 +542,12 @@ export default function CheckoutPage({ categories }: CheckoutPageProps) {
           ) : null}
         </div>
       </main>
+      <AccountOtpModal
+        open={authOpen && !authUser}
+        onClose={() => setAuthOpen(false)}
+        onUserChange={setAuthUser}
+        redirectTo="/checkout"
+      />
     </>
   );
 }

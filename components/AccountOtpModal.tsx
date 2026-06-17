@@ -11,6 +11,7 @@ type AccountOtpModalProps = {
   open: boolean;
   onClose: () => void;
   onUserChange?: (user: AuthUser | null) => void;
+  redirectTo?: string | null;
 };
 
 const authModalImage =
@@ -24,7 +25,12 @@ function normalizeIdentifier(value: string) {
   return value.trim();
 }
 
-export default function AccountOtpModal({ open, onClose, onUserChange }: AccountOtpModalProps) {
+export default function AccountOtpModal({
+  open,
+  onClose,
+  onUserChange,
+  redirectTo = "/account"
+}: AccountOtpModalProps) {
   const router = useRouter();
   const [name, setName] = useState("");
   const [identifier, setIdentifier] = useState("");
@@ -39,7 +45,9 @@ export default function AccountOtpModal({ open, onClose, onUserChange }: Account
 
   const openProfile = () => {
     onClose();
-    router.push("/account");
+    if (redirectTo) {
+      router.push(redirectTo);
+    }
   };
 
   useEffect(() => {

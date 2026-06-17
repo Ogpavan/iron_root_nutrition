@@ -9,20 +9,20 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://ironrootnutrition.l
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "Bolero Advanced Hydration | Sugar-Free Drink Mix",
-    template: "%s | Bolero Advanced Hydration"
+    default: "IronRoot Nutrition",
+    template: "%s | IronRoot Nutrition"
   },
   description:
-    "A polished Next.js storefront homepage for Bolero-style sugar-free hydration mixes, built with responsive components, local assets, and SEO metadata.",
+    "A polished Next.js storefront homepage for IronRoot Nutrition, built with responsive components, local assets, and SEO metadata.",
   alternates: {
     canonical: "/"
   },
   openGraph: {
-    title: "Bolero Advanced Hydration",
+    title: "IronRoot Nutrition",
     description:
-      "Sugar-free drink mixes, fresh flavours, hydration bottles, and lifestyle nutrition in a responsive storefront.",
+      "Performance nutrition, training supplements, and lifestyle products in a responsive storefront.",
     url: "/",
-    siteName: "Bolero Advanced Hydration",
+    siteName: "IronRoot Nutrition",
     images: [
       {
         url: "/assets/bolero/hero-bolero.webp",
@@ -36,8 +36,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Bolero Advanced Hydration",
-    description: "Sugar-free hydration mixes in a high-performance Next.js storefront.",
+    title: "IronRoot Nutrition",
+    description: "Performance nutrition in a high-performance Next.js storefront.",
     images: ["/assets/bolero/hero-bolero.webp"]
   },
   icons: {

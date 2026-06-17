@@ -4,7 +4,10 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Minus, Plus, ShoppingBag, Trash2, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { useEffect, useState } from "react";
+import AccountOtpModal from "@/components/AccountOtpModal";
 import { useCart } from "@/components/cart/CartProvider";
+import { accountStorageKey, normalizeStoredUser, type AuthUser } from "@/lib/account-auth";
 
 const currencyFormatter = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -14,6 +17,39 @@ const currencyFormatter = new Intl.NumberFormat("en-IN", {
 
 export default function MiniCart() {
   const { closeCart, isOpen, itemCount, items, removeItem, subtotal, updateQuantity } = useCart();
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
+  const [authOpen, setAuthOpen] = useState(false);
+
+  useEffect(() => {
+    const stored = window.localStorage.getItem(accountStorageKey);
+
+    if (stored) {
+      try {
+        setAuthUser(normalizeStoredUser(JSON.parse(stored)));
+      } catch {
+        window.localStorage.removeItem(accountStorageKey);
+      }
+    }
+
+    const handleStorage = () => {
+      const nextStored = window.localStorage.getItem(accountStorageKey);
+
+      if (!nextStored) {
+        setAuthUser(null);
+        return;
+      }
+
+      try {
+        setAuthUser(normalizeStoredUser(JSON.parse(nextStored)));
+      } catch {
+        setAuthUser(null);
+      }
+    };
+
+    window.addEventListener("storage", handleStorage);
+
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
 
   return (
     <AnimatePresence>
@@ -100,9 +136,19 @@ export default function MiniCart() {
                     <span>Subtotal</span>
                     <strong>{currencyFormatter.format(subtotal)}</strong>
                   </div>
-                  <Link className="mini-cart-checkout" href="/checkout" onClick={closeCart}>
-                    Checkout
-                  </Link>
+                  {authUser ? (
+                    <Link className="mini-cart-checkout" href="/checkout" onClick={closeCart}>
+                      Checkout
+                    </Link>
+                  ) : (
+                    <button
+                      type="button"
+                      className="mini-cart-checkout"
+                      onClick={() => setAuthOpen(true)}
+                    >
+                      Login
+                    </button>
+                  )}
                   <button type="button" className="mini-cart-continue" onClick={closeCart}>
                     Continue shopping
                   </button>
@@ -119,6 +165,12 @@ export default function MiniCart() {
               </div>
             )}
           </motion.aside>
+          <AccountOtpModal
+            open={authOpen && !authUser}
+            onClose={() => setAuthOpen(false)}
+            onUserChange={setAuthUser}
+            redirectTo={null}
+          />
         </div>
       ) : null}
     </AnimatePresence>

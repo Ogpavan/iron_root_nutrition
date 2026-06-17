@@ -293,6 +293,7 @@ h6 {
 }
 
 .utility-support {
+  min-width: 0;
   justify-self: end;
 }
 
@@ -5997,6 +5998,11 @@ h6 {
   color: #111111;
 }
 
+.shopify-checkout.is-complete {
+  min-height: calc(100svh - 122px);
+  background: #ffffff;
+}
+
 .checkout-shell {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(390px, 520px);
@@ -6009,6 +6015,36 @@ h6 {
 .checkout-main {
   min-width: 0;
   padding: 46px clamp(28px, 5vw, 72px) 72px 28px;
+}
+
+.shopify-checkout.is-complete .checkout-shell {
+  grid-template-columns: 1fr;
+  min-height: calc(100svh - 122px);
+  max-width: 620px;
+  align-items: center;
+  justify-items: center;
+}
+
+.shopify-checkout.is-complete .checkout-main {
+  display: grid;
+  min-height: calc(100svh - 122px);
+  align-content: center;
+  justify-items: center;
+  padding: 36px 0 72px;
+  text-align: center;
+}
+
+.shopify-checkout.is-complete .checkout-brand-block {
+  margin-bottom: 18px;
+  text-align: center;
+}
+
+.shopify-checkout.is-complete .checkout-success {
+  width: min(100%, 440px);
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  text-align: center;
 }
 
 .checkout-brand-block {
@@ -6434,6 +6470,11 @@ h6 {
   font-weight: 600;
 }
 
+.checkout-required {
+  color: #c31717;
+  font-weight: 700;
+}
+
 .shopify-checkout .checkout-summary-lines {
   display: grid;
   gap: 12px;
@@ -6496,6 +6537,15 @@ h6 {
   color: #4d8d00;
 }
 
+.shopify-checkout.is-complete .checkout-success p {
+  max-width: 360px;
+  margin: 0;
+}
+
+.shopify-checkout.is-complete .checkout-success button {
+  margin-top: 6px;
+}
+
 @media (max-width: 1100px) {
   .shopify-checkout {
     background: #ffffff;
@@ -6531,6 +6581,29 @@ h6 {
 
   .shopify-checkout .checkout-summary-items {
     max-height: none;
+  }
+
+  .shopify-checkout.is-complete {
+    min-height: calc(100svh - 106px);
+  }
+
+  .shopify-checkout.is-complete .checkout-shell {
+    min-height: calc(100svh - 106px);
+    padding: 0 12px 42px;
+  }
+
+  .shopify-checkout.is-complete .checkout-main {
+    min-height: calc(100svh - 148px);
+    padding: 22px 0 42px;
+  }
+
+  .shopify-checkout.is-complete .checkout-brand-block {
+    margin-bottom: 20px;
+  }
+
+  .shopify-checkout.is-complete .checkout-success {
+    width: min(100%, 360px);
+    gap: 12px;
   }
 }
 
@@ -6624,12 +6697,12 @@ h6 {
   }
 
   .checkout-discount > div {
-    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-columns: auto minmax(0, 1fr) auto;
   }
 
   .checkout-discount button {
-    grid-column: 1 / -1;
-    width: 100%;
+    grid-column: auto;
+    width: auto;
   }
 }
 
@@ -6672,6 +6745,12 @@ h6 {
   .checkout-discount > div {
     gap: 8px;
     padding-left: 10px;
+  }
+
+  .checkout-discount button {
+    min-height: 28px;
+    padding: 0 10px;
+    font-size: 11px;
   }
 
   .shopify-checkout .checkout-submit {
@@ -6864,6 +6943,13 @@ h6 {
   .header-main {
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 12px;
+  }
+
+  .utility-bar {
+    min-height: auto;
+    max-height: none;
+    padding: 8px 16px;
+    gap: 8px;
   }
 
   .header-search-bar {
@@ -7552,12 +7638,21 @@ h6 {
   }
 
   .utility-bar {
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 8px 12px;
     font-size: 9px;
   }
 
   .utility-bar p {
     min-width: 0;
     font-size: 10px;
+    line-height: 1.25;
+  }
+
+  .utility-support {
+    justify-self: end;
+    font-size: 10px;
+    line-height: 1;
   }
 
   .utility-logo img {
