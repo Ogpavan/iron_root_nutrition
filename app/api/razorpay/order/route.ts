@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
-import { getAllProducts } from "@/lib/woocommerce";
+import { calculateDiscountedCheckoutAmountPaise } from "@/lib/checkout-discounts";
+import { getCheckoutShippingOption } from "@/lib/checkout-shipping";
+import type { CheckoutCustomer } from "@/lib/checkout-orders";
 
 type CheckoutItem = {
   id?: number | string;
@@ -7,11 +9,6 @@ type CheckoutItem = {
   name?: string;
   quantity?: number;
 };
-
-function readPrice(value: string) {
-  const parsed = Number(value.replace(/[^0-9.]/g, ""));
-  return Number.isFinite(parsed) ? parsed : 0;
-}
 
 function getRazorpayCredentials() {
   const keyId = process.env.RAZORPAY_KEY_ID ?? process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
@@ -24,45 +21,29 @@ function getRazorpayCredentials() {
   return { keyId, keySecret };
 }
 
-function getQuantity(value: unknown) {
-  return typeof value === "number" && Number.isFinite(value)
-    ? Math.max(1, Math.min(99, Math.floor(value)))
-    : 1;
-}
-
 export async function POST(request: Request) {
   try {
     const { keyId, keySecret } = getRazorpayCredentials();
-    const body = (await request.json()) as { items?: CheckoutItem[] };
+    const body = (await request.json()) as {
+      items?: CheckoutItem[];
+      customer?: CheckoutCustomer;
+      discountCode?: string;
+      shippingId?: string;
+    };
     const items = Array.isArray(body.items) ? body.items : [];
 
     if (items.length === 0) {
       return NextResponse.json({ error: "Cart is empty." }, { status: 400 });
     }
 
-    const products = await getAllProducts(100);
-    let subtotal = 0;
-
-    for (const item of items) {
-      const product = products.find((candidate) => {
-        return (
-          (item.id !== undefined && String(candidate.id) === String(item.id)) ||
-          (item.href && candidate.href === item.href) ||
-          (item.name && candidate.name === item.name)
-        );
-      });
-
-      if (!product) {
-        return NextResponse.json(
-          { error: `Could not validate cart item: ${item.name ?? "Unknown product"}.` },
-          { status: 400 }
-        );
-      }
-
-      subtotal += readPrice(product.price) * getQuantity(item.quantity);
-    }
-
-    const amount = Math.round(subtotal * 100);
+    const pricing = await calculateDiscountedCheckoutAmountPaise(
+      items,
+      body.discountCode
+    );
+    const shipping = body.customer
+      ? await getCheckoutShippingOption(items, body.customer, body.shippingId, body.discountCode)
+      : null;
+    const amount = pricing.amountPaise + Math.round((shipping?.total ?? 0) * 100);
 
     if (!Number.isFinite(amount) || amount <= 0) {
       return NextResponse.json({ error: "Invalid order amount." }, { status: 400 });
@@ -80,7 +61,9 @@ export async function POST(request: Request) {
         currency: "INR",
         receipt,
         notes: {
-          item_count: String(items.length)
+          item_count: String(items.length),
+          discount_code: pricing.discount?.code ?? "",
+          shipping_method: shipping?.title ?? ""
         }
       })
     });
@@ -98,7 +81,9 @@ export async function POST(request: Request) {
       keyId,
       orderId: data.id,
       amount: data.amount,
-      currency: data.currency ?? "INR"
+      currency: data.currency ?? "INR",
+      discount: pricing.discount,
+      shipping
     });
   } catch (error) {
     return NextResponse.json(

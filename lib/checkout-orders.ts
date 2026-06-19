@@ -1,4 +1,6 @@
 import { getAllProducts } from "@/lib/woocommerce";
+import { calculateDiscountedCheckoutAmountPaise } from "@/lib/checkout-discounts";
+import type { CheckoutShippingOption } from "@/lib/checkout-shipping";
 
 export type CheckoutOrderItem = {
   id?: number | string;
@@ -24,6 +26,8 @@ type CreateWooOrderInput = {
   items: CheckoutOrderItem[];
   customer: CheckoutCustomer;
   paymentMethod: "cod" | "razorpay";
+  discountCode?: string;
+  shipping?: CheckoutShippingOption;
   razorpayOrderId?: string;
   razorpayPaymentId?: string;
 };
@@ -71,34 +75,24 @@ function readPrice(value: string) {
 }
 
 export async function calculateCheckoutAmountPaise(items: CheckoutOrderItem[]) {
-  if (items.length === 0) {
-    throw new Error("Cart is empty.");
-  }
+  return calculateCheckoutAmountWithDiscountPaise(items);
+}
 
-  const products = await getAllProducts(100);
-  const subtotal = items.reduce((total, item) => {
-    const product = products.find((candidate) => {
-      return (
-        (item.id !== undefined && String(candidate.id) === String(item.id)) ||
-        (item.href && candidate.href === item.href) ||
-        (item.name && candidate.name === item.name)
-      );
-    });
+export async function calculateCheckoutAmountWithDiscountPaise(
+  items: CheckoutOrderItem[],
+  discountCode?: string
+) {
+  const { amountPaise } = await calculateDiscountedCheckoutAmountPaise(items, discountCode);
 
-    if (!product) {
-      throw new Error(`Could not validate cart item: ${item.name ?? "Unknown product"}.`);
-    }
-
-    return total + readPrice(product.price) * getQuantity(item.quantity);
-  }, 0);
-
-  return Math.round(subtotal * 100);
+  return amountPaise;
 }
 
 export async function createWooCommerceCheckoutOrder({
   items,
   customer,
   paymentMethod,
+  discountCode,
+  shipping,
   razorpayOrderId,
   razorpayPaymentId
 }: CreateWooOrderInput) {
@@ -151,7 +145,17 @@ export async function createWooCommerceCheckoutOrder({
     billing,
     shipping: billing,
     line_items: lineItems,
+    shipping_lines: shipping
+      ? [{
+          method_id: shipping.methodId,
+          method_title: shipping.title,
+          instance_id: shipping.instanceId,
+          total: shipping.total.toFixed(2)
+        }]
+      : undefined,
+    coupon_lines: discountCode ? [{ code: discountCode.trim() }] : undefined,
     meta_data: [
+      ...(discountCode ? [{ key: "_ironroot_discount_code", value: discountCode.trim() }] : []),
       ...(razorpayOrderId ? [{ key: "_razorpay_order_id", value: razorpayOrderId }] : []),
       ...(razorpayPaymentId ? [{ key: "_razorpay_payment_id", value: razorpayPaymentId }] : [])
     ]

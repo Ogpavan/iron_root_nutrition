@@ -386,16 +386,9 @@ export default function SiteHeader({
               </button>
             </motion.form>
           ) : (
-            <motion.div
-              key="utility-strip"
-              className="header-strip-motion"
-              initial={{ clipPath: "inset(0 100% 0 0)", opacity: 1 }}
-              animate={{ clipPath: "inset(0 0% 0 0)", opacity: 1 }}
-              exit={{ clipPath: "inset(0 100% 0 0)", opacity: 1 }}
-              transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
-            >
+            <div key="utility-strip" className="header-strip-motion">
               <TopHeaderStrip />
-            </motion.div>
+            </div>
           )}
         </AnimatePresence>
         <div

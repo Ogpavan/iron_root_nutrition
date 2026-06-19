@@ -67,7 +67,7 @@ type FlavourTile = (typeof flavourTiles)[number];
 const founderImage =
   "https://admin.ironrootnutrition.com/wp-content/uploads/2026/06/founder_image.png?v=20260610-1";
 const heroMobileImage =
-  "https://admin.ironrootnutrition.com/wp-content/uploads/2026/06/ChatGPT-Image-Jun-11-2026-05_02_18-PM-1.png";
+  "https://admin.ironrootnutrition.com/wp-content/uploads/2026/06/ChatGPT-Image-Jun-19-2026-12_54_24-PM.png";
 
 function MotionSection({
   children,
@@ -179,15 +179,21 @@ function ProductCard({ product, index }: { product: HomeProduct; index: number }
     >
       <a className="product-media" href={product.href ?? "#products"} aria-label={product.name}>
         <span style={{ backgroundColor: product.tone }} />
-        <Image
-          src={product.image}
-          width={645}
-          height={936}
-          alt={product.name}
-          loading="eager"
-          quality={95}
-          sizes="(max-width: 700px) 45vw, (max-width: 1100px) 20vw, 230px"
-        />
+        <motion.div
+          className="product-image-motion"
+          whileHover={{ scale: 1.08 }}
+          transition={{ duration: 0.32, ease: "easeOut" }}
+        >
+          <Image
+            src={product.image}
+            width={645}
+            height={936}
+            alt={product.name}
+            loading="eager"
+            quality={95}
+            sizes="(max-width: 700px) 45vw, (max-width: 1100px) 20vw, 230px"
+          />
+        </motion.div>
       </a>
       <p>{product.tag}</p>
       <h3>{product.name}</h3>
@@ -238,7 +244,11 @@ function findProductByAliases(products: HomeProduct[], aliases: string[]) {
   });
 }
 
-function getTileProduct(tile: FlavourTile, index: number, products: HomeProduct[]) {
+function getTileProduct(tile: FlavourTile, products: HomeProduct[]) {
+  if ("aliases" in tile && Array.isArray(tile.aliases)) {
+    return findProductByAliases(products, tile.aliases);
+  }
+
   const title = tile.title.toLowerCase();
   const aliases = title.includes("tital") || title.includes("titan")
     ? ["tital meal", "titan meal", "meal mass gainer", "mass gainer"]
@@ -248,7 +258,7 @@ function getTileProduct(tile: FlavourTile, index: number, products: HomeProduct[
         ? ["pre shock", "preshock", "pre-shock"]
         : [title];
 
-  return findProductByAliases(products, aliases) ?? products[index];
+  return findProductByAliases(products, aliases);
 }
 
 function FlavourTiles({ products }: { products: HomeProduct[] }) {
@@ -256,7 +266,7 @@ function FlavourTiles({ products }: { products: HomeProduct[] }) {
     <MotionSection className="flavour-section">
       <div className="flavour-grid">
         {flavourTiles.map((tile, index) => {
-          const product = getTileProduct(tile, index, products);
+          const product = getTileProduct(tile, products);
 
           return (
             <FlavourTileCard
@@ -283,7 +293,7 @@ function FlavourTileCard({
 }) {
   const reduceMotion = useReducedMotion();
   const tileRef = useRef<HTMLElement>(null);
-  const title = product?.name ?? tile.title;
+  const title = tile.title;
   const href = product?.href ?? tile.href;
   const { scrollYProgress } = useScroll({
     target: tileRef,
@@ -400,9 +410,9 @@ function FitnessBlock() {
 
 function StrawberryFeature({ products }: { products: HomeProduct[] }) {
   const proteinPromoImage =
-    "https://admin.ironrootnutrition.com/wp-content/uploads/2026/06/img-.png";
+    "https://admin.ironrootnutrition.com/wp-content/uploads/2026/06/16.png";
   const proteinPromoMobileImage =
-    "https://admin.ironrootnutrition.com/wp-content/uploads/2026/06/ChatGPT-Image-Jun-11-2026-06_15_12-PM.png";
+    "https://admin.ironrootnutrition.com/wp-content/uploads/2026/06/17.webp";
   const proFusionProduct = findProductByAliases(products, ["pro fusion", "profusion"]);
   const proFusionHref = proFusionProduct?.href ?? "/products/pro-fusion";
   const stageRef = useRef<HTMLDivElement>(null);

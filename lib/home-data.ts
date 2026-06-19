@@ -1,5 +1,6 @@
 export const asset = (name: string) => `/assets/bolero/${name}`;
-export const heroImage = `${asset("hero-bolero.webp")}?v=20260610-131033`;
+export const heroImage =
+  "https://admin.ironrootnutrition.com/wp-content/uploads/2026/06/ChatGPT-Image-Jun-19-2026-12_39_03-PM.png";
 
 export type HomeProduct = {
   id?: number | string;
@@ -128,21 +129,24 @@ export const products: HomeProduct[] = [
 
 export const flavourTiles = [
   {
-    title: "Tital Meal Mass Gainer",
+    title: "Pista Kulfi Flavour",
+    aliases: ["tital meal", "titan meal", "meal mass gainer", "mass gainer"],
     image:
-      "https://admin.ironrootnutrition.com/wp-content/uploads/2026/06/ChatGPT-Image-Jun-10-2026-05_46_39-PM.png",
+      "https://admin.ironrootnutrition.com/wp-content/uploads/2026/06/ChatGPT-Image-Jun-19-2026-12_15_55-PM.png",
     href: "#products"
   },
   {
-    title: "Pro Fusion",
+    title: "Espresso Coffee Flavour",
+    aliases: ["pro fusion", "profusion"],
     image:
-      "https://admin.ironrootnutrition.com/wp-content/uploads/2026/06/ChatGPT-Image-Jun-10-2026-05_49_04-PM.png",
+      "https://admin.ironrootnutrition.com/wp-content/uploads/2026/06/ChatGPT-Image-Jun-19-2026-11_42_22-AM.png",
     href: "#products"
   },
   {
-    title: "Pre Shock",
+    title: "Orange Burst Flavour",
+    aliases: ["pre shock", "preshock", "pre-shock"],
     image:
-      "https://admin.ironrootnutrition.com/wp-content/uploads/2026/06/ChatGPT-Image-Jun-10-2026-05_48_39-PM.png",
+      "https://admin.ironrootnutrition.com/wp-content/uploads/2026/06/ChatGPT-Image-Jun-19-2026-12_00_52-PM.png",
     href: "#products"
   }
 ];

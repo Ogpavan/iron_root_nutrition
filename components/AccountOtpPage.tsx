@@ -7,16 +7,15 @@ import {
   Check,
   Crown,
   Dumbbell,
-  Heart,
   LogOut,
   Mail,
+  MapPin,
   Package,
   Pencil,
   Phone,
   ShieldCheck,
   Smartphone,
   UserRound,
-  Wallet,
   X,
   Zap
 } from "lucide-react";
@@ -40,15 +39,27 @@ const profileProductImage =
   "https://admin.ironrootnutrition.com/wp-content/uploads/2026/06/ChatGPT-Image-Jun-16-2026-05_46_03-PM.png";
 
 const secondaryProfileMetrics = [
-  { label: "Wishlist", value: "7", action: "View wishlist", href: "/all-products", icon: Heart },
   {
-    label: "Authenticity Checks",
-    value: "3",
-    action: "View history",
-    href: "/authenticity",
-    icon: ShieldCheck
+    label: "Saved Address",
+    value: "Address",
+    action: "Manage",
+    href: "/account/address",
+    icon: MapPin
   },
-  { label: "IronRoot Cash", value: "\u20B9250", action: "View balance", href: "#wallet", icon: Wallet }
+  {
+    label: "Support",
+    value: "Help",
+    action: "Contact support",
+    href: "/support",
+    icon: Smartphone
+  },
+  {
+    label: "Shop Again",
+    value: "Products",
+    action: "Browse",
+    href: "/all-products",
+    icon: Dumbbell
+  }
 ];
 
 const profileAssurances = [
@@ -293,8 +304,7 @@ export default function AccountOtpPage({ categories }: AccountOtpPageProps) {
         {
           label: "Phone Number",
           value: phoneNumber,
-          icon: Phone,
-          status: phoneNumber !== "Not added" ? "Verified" : undefined
+          icon: Phone
         }
       ]
     : [];
@@ -422,16 +432,6 @@ export default function AccountOtpPage({ categories }: AccountOtpPageProps) {
                         </span>
                         <dt>{row.label}</dt>
                         <dd>{row.value}</dd>
-                        {row.status ? (
-                          <span
-                            className={`profile-detail-status${
-                              row.status === "Verified" ? " is-verified" : ""
-                            }`}
-                          >
-                            {row.status === "Verified" ? <Check size={15} aria-hidden="true" /> : null}
-                            {row.status}
-                          </span>
-                        ) : null}
                       </div>
                     );
                   })}

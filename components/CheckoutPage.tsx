@@ -5,11 +5,12 @@ import {
   LockKeyhole,
   ShieldCheck,
   ShoppingBag,
-  Tag
+  Tag,
+  X
 } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import AccountOtpModal from "@/components/AccountOtpModal";
 import { useCart } from "@/components/cart/CartProvider";
 import SiteHeader from "@/components/SiteHeader";
@@ -25,6 +26,8 @@ type RazorpayOrderResponse = {
   orderId?: string;
   amount?: number;
   currency?: string;
+  discount?: CheckoutDiscount | null;
+  shipping?: CheckoutShippingOption | null;
   error?: string;
 };
 
@@ -65,6 +68,52 @@ type CheckoutPayload = {
     quantity: number;
   }[];
   customer: CheckoutCustomer;
+  discountCode?: string;
+  shippingId?: string;
+};
+
+type CheckoutDiscount = {
+  code: string;
+  amount: number;
+};
+
+type DiscountResponse = {
+  discount?: CheckoutDiscount | null;
+  total?: number;
+  error?: string;
+};
+
+type CheckoutShippingOption = {
+  id: string;
+  methodId: string;
+  instanceId?: number;
+  title: string;
+  total: number;
+};
+
+type ShippingResponse = {
+  options?: CheckoutShippingOption[];
+  error?: string;
+};
+
+type WooAddress = {
+  first_name?: string;
+  last_name?: string;
+  address_1?: string;
+  address_2?: string;
+  city?: string;
+  state?: string;
+  postcode?: string;
+  country?: string;
+  email?: string;
+  phone?: string;
+};
+
+type AccountAddressResponse = {
+  billing?: WooAddress;
+  shipping?: WooAddress;
+  defaultAddress?: "billing" | "shipping";
+  error?: string;
 };
 
 type RazorpayCheckoutOptions = {
@@ -115,7 +164,12 @@ function getFormString(formData: FormData, key: string) {
   return String(formData.get(key) ?? "").trim();
 }
 
-function buildCheckoutPayload(formData: FormData, items: CheckoutPayload["items"]): CheckoutPayload {
+function buildCheckoutPayload(
+  formData: FormData,
+  items: CheckoutPayload["items"],
+  discountCode?: string,
+  shippingId?: string
+): CheckoutPayload {
   return {
     items: items.map((item) => ({
       id: item.id,
@@ -134,8 +188,87 @@ function buildCheckoutPayload(formData: FormData, items: CheckoutPayload["items"
       city: getFormString(formData, "city"),
       state: getFormString(formData, "state"),
       pincode: getFormString(formData, "pincode")
-    }
+    },
+    discountCode,
+    shippingId
   };
+}
+
+const emptyCheckoutCustomer: CheckoutCustomer = {
+  firstName: "",
+  lastName: "",
+  emailOrPhone: "",
+  phone: "",
+  country: "India",
+  address1: "",
+  address2: "",
+  city: "",
+  state: "",
+  pincode: ""
+};
+
+function getUserContact(user: AuthUser) {
+  const identifierIsEmail = user.identifier.includes("@");
+
+  return {
+    email: user.email ?? (identifierIsEmail ? user.identifier : ""),
+    phone: user.phone ?? (identifierIsEmail ? "" : user.identifier)
+  };
+}
+
+function splitName(value: string) {
+  const parts = value.trim().split(/\s+/).filter(Boolean);
+
+  return {
+    firstName: parts[0] ?? "",
+    lastName: parts.slice(1).join(" ")
+  };
+}
+
+function getCheckoutCustomerFromUser(user: AuthUser): CheckoutCustomer {
+  const { email, phone } = getUserContact(user);
+  const { firstName, lastName } = splitName(user.name);
+
+  return {
+    ...emptyCheckoutCustomer,
+    firstName,
+    lastName,
+    emailOrPhone: email || phone,
+    phone
+  };
+}
+
+function mapAddressToCheckoutCustomer(
+  address: WooAddress | undefined,
+  fallback: CheckoutCustomer
+): CheckoutCustomer {
+  if (!address) {
+    return fallback;
+  }
+
+  return {
+    ...fallback,
+    firstName: address.first_name?.trim() || fallback.firstName,
+    lastName: address.last_name?.trim() || fallback.lastName,
+    emailOrPhone: address.email?.trim() || fallback.emailOrPhone,
+    phone: address.phone?.trim() || fallback.phone,
+    country: "India",
+    address1: address.address_1?.trim() || "",
+    address2: address.address_2?.trim() || "",
+    city: address.city?.trim() || "",
+    state: address.state?.trim() || "",
+    pincode: address.postcode?.trim() || ""
+  };
+}
+
+function hasShippingAddress(customer: CheckoutCustomer) {
+  return Boolean(
+    customer.country.trim() &&
+    customer.address1.trim() &&
+    customer.city.trim() &&
+    customer.state.trim() &&
+    customer.pincode.trim()
+  );
 }
 
 function RequiredLabel({ htmlFor, children }: { htmlFor: string; children: string }) {
@@ -176,9 +309,21 @@ export default function CheckoutPage({ categories }: CheckoutPageProps) {
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [authReady, setAuthReady] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
+  const [customer, setCustomer] = useState<CheckoutCustomer>(emptyCheckoutCustomer);
+  const [discountCode, setDiscountCode] = useState("");
+  const [appliedDiscount, setAppliedDiscount] = useState<CheckoutDiscount | null>(null);
+  const [discountMessage, setDiscountMessage] = useState("");
+  const [discountApplying, setDiscountApplying] = useState(false);
+  const [shippingOptions, setShippingOptions] = useState<CheckoutShippingOption[]>([]);
+  const [selectedShippingId, setSelectedShippingId] = useState("");
+  const [shippingLoading, setShippingLoading] = useState(false);
+  const [shippingError, setShippingError] = useState("");
 
-  const total = subtotal;
-  const includedTax = Math.round((total * 0.18) / 1.18);
+  const discountAmount = Math.min(subtotal, appliedDiscount?.amount ?? 0);
+  const selectedShipping = shippingOptions.find((option) => option.id === selectedShippingId) ?? shippingOptions[0];
+  const shippingTotal = selectedShipping?.total ?? 0;
+  const shippingAddressReady = hasShippingAddress(customer);
+  const total = Math.max(0, subtotal - discountAmount + shippingTotal);
 
   useEffect(() => {
     const stored = window.localStorage.getItem(accountStorageKey);
@@ -192,12 +337,161 @@ export default function CheckoutPage({ categories }: CheckoutPageProps) {
     try {
       const nextUser = normalizeStoredUser(JSON.parse(stored));
       setAuthUser(nextUser);
+      if (nextUser) {
+        setCustomer(getCheckoutCustomerFromUser(nextUser));
+      }
       setAuthOpen(!nextUser);
     } catch {
       window.localStorage.removeItem(accountStorageKey);
       setAuthOpen(true);
     } finally {
       setAuthReady(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!authUser) {
+      setCustomer(emptyCheckoutCustomer);
+      return;
+    }
+
+    const fallback = getCheckoutCustomerFromUser(authUser);
+    setCustomer((current) => ({
+      ...fallback,
+      ...Object.fromEntries(
+        Object.entries(current).filter(([, value]) => Boolean(String(value).trim()))
+      )
+    }) as CheckoutCustomer);
+
+    const { email, phone } = getUserContact(authUser);
+
+    if (!email) {
+      return;
+    }
+
+    const controller = new AbortController();
+
+    async function loadSavedAddress() {
+      try {
+        const response = await fetch("/api/account/address", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            mode: "load",
+            email,
+            phone
+          }),
+          signal: controller.signal
+        });
+        const data = (await response.json()) as AccountAddressResponse;
+
+        if (!response.ok) {
+          return;
+        }
+
+        const savedAddress = data.defaultAddress === "shipping" ? data.shipping : data.billing;
+        setCustomer(mapAddressToCheckoutCustomer(savedAddress, fallback));
+      } catch (error) {
+        if (!(error instanceof DOMException && error.name === "AbortError")) {
+          setCustomer(fallback);
+        }
+      }
+    }
+
+    void loadSavedAddress();
+
+    return () => controller.abort();
+  }, [authUser]);
+
+  useEffect(() => {
+    if (complete) {
+      window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+    }
+  }, [complete]);
+
+  useEffect(() => {
+    if (!authUser || items.length === 0) {
+      setShippingOptions([]);
+      setSelectedShippingId("");
+      return;
+    }
+
+    if (!shippingAddressReady) {
+      setShippingOptions([]);
+      setSelectedShippingId("");
+      setShippingError("");
+      return;
+    }
+
+    const controller = new AbortController();
+
+    async function loadShippingOptions() {
+      setShippingLoading(true);
+      setShippingError("");
+
+      try {
+        const response = await fetch("/api/checkout/shipping", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            items: items.map((item) => ({
+              id: item.id,
+              href: item.href,
+              name: item.name,
+              quantity: item.quantity
+            })),
+            customer,
+            discountCode: appliedDiscount?.code
+          }),
+          signal: controller.signal
+        });
+        const data = (await response.json()) as ShippingResponse;
+
+        if (!response.ok) {
+          throw new Error(data.error || "Could not load shipping methods.");
+        }
+
+        const nextOptions = data.options ?? [];
+        setShippingOptions(nextOptions);
+        setSelectedShippingId((current) => {
+          if (nextOptions.some((option) => option.id === current)) {
+            return current;
+          }
+
+          return nextOptions[0]?.id ?? "";
+        });
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return;
+        }
+
+        setShippingOptions([]);
+        setSelectedShippingId("");
+        setShippingError(error instanceof Error ? error.message : "Could not load shipping methods.");
+      } finally {
+        if (!controller.signal.aborted) {
+          setShippingLoading(false);
+        }
+      }
+    }
+
+    void loadShippingOptions();
+
+    return () => controller.abort();
+  }, [appliedDiscount?.code, authUser, customer, items, shippingAddressReady]);
+
+  const updateCustomerField = (key: keyof CheckoutCustomer, value: string) => {
+    setCustomer((current) => ({ ...current, [key]: value }));
+  };
+
+  const handleAuthClose = useCallback(() => {
+    setAuthOpen(false);
+  }, []);
+
+  const handleUserChange = useCallback((nextUser: AuthUser | null) => {
+    setAuthUser(nextUser);
+    if (nextUser) {
+      setCustomer(getCheckoutCustomerFromUser(nextUser));
     }
   }, []);
 
@@ -209,7 +503,12 @@ export default function CheckoutPage({ categories }: CheckoutPageProps) {
     }
 
     const formData = new FormData(event.currentTarget);
-    const checkoutPayload = buildCheckoutPayload(formData, items);
+    const checkoutPayload = buildCheckoutPayload(
+      formData,
+      items,
+      appliedDiscount?.code,
+      selectedShipping?.id
+    );
     const { firstName, lastName, emailOrPhone, phone } = checkoutPayload.customer;
     const name = `${firstName} ${lastName}`.trim();
 
@@ -234,7 +533,10 @@ export default function CheckoutPage({ categories }: CheckoutPageProps) {
             href: item.href,
             name: item.name,
             quantity: item.quantity
-          }))
+          })),
+          customer: checkoutPayload.customer,
+          discountCode: appliedDiscount?.code,
+          shippingId: selectedShipping?.id
         })
       });
       const order = (await orderResponse.json()) as RazorpayOrderResponse;
@@ -314,6 +616,55 @@ export default function CheckoutPage({ categories }: CheckoutPageProps) {
     }
   };
 
+  const handleApplyDiscount = async () => {
+    const normalizedCode = discountCode.trim();
+
+    if (!normalizedCode) {
+      setAppliedDiscount(null);
+      setDiscountMessage("Enter a discount code.");
+      return;
+    }
+
+    setDiscountApplying(true);
+    setDiscountMessage("");
+
+    try {
+      const response = await fetch("/api/checkout/discount", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: items.map((item) => ({
+            id: item.id,
+            href: item.href,
+            name: item.name,
+            quantity: item.quantity
+          })),
+          discountCode: normalizedCode
+        })
+      });
+      const data = (await response.json()) as DiscountResponse;
+
+      if (!response.ok || !data.discount) {
+        throw new Error(data.error || "Could not apply discount.");
+      }
+
+      setAppliedDiscount(data.discount);
+      setDiscountCode(data.discount.code);
+      setDiscountMessage(`${data.discount.code.toUpperCase()} applied.`);
+    } catch (error) {
+      setAppliedDiscount(null);
+      setDiscountMessage(error instanceof Error ? error.message : "Could not apply discount.");
+    } finally {
+      setDiscountApplying(false);
+    }
+  };
+
+  const clearDiscount = () => {
+    setAppliedDiscount(null);
+    setDiscountCode("");
+    setDiscountMessage("");
+  };
+
   return (
     <>
       <SiteHeader variant="solid" categories={categories} />
@@ -364,7 +715,14 @@ export default function CheckoutPage({ categories }: CheckoutPageProps) {
                   <div className="checkout-grid">
                     <div>
                       <RequiredLabel htmlFor="email">Email or phone</RequiredLabel>
-                      <input id="email" name="email" type="text" required />
+                      <input
+                        id="email"
+                        name="email"
+                        type="text"
+                        value={customer.emailOrPhone}
+                        onChange={(event) => updateCustomerField("emailOrPhone", event.target.value)}
+                        required
+                      />
                     </div>
                   </div>
                   <label className="checkout-checkline">
@@ -382,7 +740,13 @@ export default function CheckoutPage({ categories }: CheckoutPageProps) {
                   <div className="checkout-grid">
                     <div>
                       <RequiredLabel htmlFor="country">Country/Region</RequiredLabel>
-                      <select id="country" name="country" defaultValue="India" required>
+                      <select
+                        id="country"
+                        name="country"
+                        value={customer.country}
+                        onChange={(event) => updateCustomerField("country", event.target.value)}
+                        required
+                      >
                         <option>India</option>
                       </select>
                     </div>
@@ -390,47 +754,134 @@ export default function CheckoutPage({ categories }: CheckoutPageProps) {
                   <div className="checkout-grid two-up">
                     <div>
                       <RequiredLabel htmlFor="first-name">First name</RequiredLabel>
-                      <input id="first-name" name="firstName" type="text" required />
+                      <input
+                        id="first-name"
+                        name="firstName"
+                        type="text"
+                        value={customer.firstName}
+                        onChange={(event) => updateCustomerField("firstName", event.target.value)}
+                        required
+                      />
                     </div>
                     <div>
                       <label htmlFor="last-name">Last name</label>
-                      <input id="last-name" name="lastName" type="text" />
+                      <input
+                        id="last-name"
+                        name="lastName"
+                        type="text"
+                        value={customer.lastName}
+                        onChange={(event) => updateCustomerField("lastName", event.target.value)}
+                      />
                     </div>
                   </div>
                   <div className="checkout-grid">
                     <div>
                       <RequiredLabel htmlFor="address1">Address</RequiredLabel>
-                      <input id="address1" name="address1" type="text" required />
+                      <input
+                        id="address1"
+                        name="address1"
+                        type="text"
+                        value={customer.address1}
+                        onChange={(event) => updateCustomerField("address1", event.target.value)}
+                        required
+                      />
                     </div>
                     <div>
                       <label htmlFor="address2">Apartment, suite</label>
-                      <input id="address2" name="address2" type="text" />
+                      <input
+                        id="address2"
+                        name="address2"
+                        type="text"
+                        value={customer.address2}
+                        onChange={(event) => updateCustomerField("address2", event.target.value)}
+                      />
                     </div>
                   </div>
                   <div className="checkout-grid three-up">
                     <div>
                       <RequiredLabel htmlFor="city">City</RequiredLabel>
-                      <input id="city" name="city" type="text" required />
+                      <input
+                        id="city"
+                        name="city"
+                        type="text"
+                        value={customer.city}
+                        onChange={(event) => updateCustomerField("city", event.target.value)}
+                        required
+                      />
                     </div>
                     <div>
                       <RequiredLabel htmlFor="state">State</RequiredLabel>
-                      <input id="state" name="state" type="text" required />
+                      <input
+                        id="state"
+                        name="state"
+                        type="text"
+                        value={customer.state}
+                        onChange={(event) => updateCustomerField("state", event.target.value)}
+                        required
+                      />
                     </div>
                     <div>
                       <RequiredLabel htmlFor="pincode">PIN code</RequiredLabel>
-                      <input id="pincode" name="pincode" type="text" required />
+                      <input
+                        id="pincode"
+                        name="pincode"
+                        type="text"
+                        value={customer.pincode}
+                        onChange={(event) => updateCustomerField("pincode", event.target.value)}
+                        required
+                      />
                     </div>
                   </div>
                   <div className="checkout-grid">
                     <div>
                       <RequiredLabel htmlFor="mobile">Phone</RequiredLabel>
-                      <input id="mobile" name="mobile" type="tel" required />
+                      <input
+                        id="mobile"
+                        name="mobile"
+                        type="tel"
+                        value={customer.phone}
+                        onChange={(event) => updateCustomerField("phone", event.target.value)}
+                        required
+                      />
                     </div>
                   </div>
                   <label className="checkout-checkline">
                     <input type="checkbox" />
                     <span>Save info</span>
                   </label>
+                </section>
+
+                <section className="checkout-panel">
+                  <div className="checkout-panel-title">
+                    <div>
+                      <h2>Shipping</h2>
+                    </div>
+                  </div>
+                  {shippingLoading ? (
+                    <p className="checkout-shipping-state">Loading shipping methods...</p>
+                  ) : shippingError ? (
+                    <p className="checkout-shipping-state is-error">{shippingError}</p>
+                  ) : shippingOptions.length > 0 ? (
+                    <div className="checkout-shipping-options">
+                      {shippingOptions.map((option) => (
+                        <label className="checkout-shipping-option" key={option.id}>
+                          <input
+                            type="radio"
+                            name="shippingMethod"
+                            value={option.id}
+                            checked={selectedShippingId === option.id}
+                            onChange={() => setSelectedShippingId(option.id)}
+                          />
+                          <span>
+                            <strong>{option.title}</strong>
+                            <em>{option.total > 0 ? currencyFormatter.format(option.total) : "Free"}</em>
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="checkout-shipping-state">Enter your address to load shipping methods.</p>
+                  )}
                 </section>
 
                 <section className="checkout-panel">
@@ -492,11 +943,45 @@ export default function CheckoutPage({ categories }: CheckoutPageProps) {
 
               <div className="checkout-discount">
                 <label htmlFor="discount-code">Discount code or gift card</label>
-                <div>
+                <div className="checkout-discount-entry">
                   <Tag size={16} aria-hidden="true" />
-                  <input id="discount-code" type="text" />
-                  <button type="button">Apply</button>
+                  <input
+                    id="discount-code"
+                    type="text"
+                    value={discountCode}
+                    onChange={(event) => {
+                      setDiscountCode(event.target.value.toUpperCase());
+                      if (appliedDiscount) {
+                        setAppliedDiscount(null);
+                      }
+                      setDiscountMessage("");
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        void handleApplyDiscount();
+                      }
+                    }}
+                  />
+                  <button type="button" onClick={handleApplyDiscount} disabled={discountApplying || itemCount === 0}>
+                    {discountApplying ? "Applying" : "Apply"}
+                  </button>
                 </div>
+                {discountMessage || appliedDiscount ? (
+                  <div className="checkout-discount-feedback">
+                    {discountMessage ? (
+                      <p className={`checkout-discount-message${appliedDiscount ? " is-success" : ""}`}>
+                        {discountMessage}
+                      </p>
+                    ) : null}
+                    {appliedDiscount ? (
+                      <button className="checkout-discount-remove" type="button" onClick={clearDiscount}>
+                        <X size={14} aria-hidden="true" />
+                        Remove {appliedDiscount.code.toUpperCase()}
+                      </button>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
 
               <div className="checkout-summary-lines">
@@ -504,13 +989,29 @@ export default function CheckoutPage({ categories }: CheckoutPageProps) {
                   <span>Subtotal</span>
                   <strong>{currencyFormatter.format(subtotal)}</strong>
                 </div>
+                {discountAmount > 0 ? (
+                  <div className="is-discount">
+                    <span>Discount</span>
+                    <strong>-{currencyFormatter.format(discountAmount)}</strong>
+                  </div>
+                ) : null}
                 <div>
                   <span>Shipping</span>
-                  <strong>Calculated later</strong>
+                  <strong>
+                    {shippingLoading
+                      ? "Calculating"
+                        : selectedShipping
+                          ? shippingTotal > 0
+                            ? currencyFormatter.format(shippingTotal)
+                            : "Free"
+                        : shippingAddressReady
+                          ? "Not available"
+                          : "Enter address"}
+                  </strong>
                 </div>
                 <div>
-                  <span>Estimated taxes</span>
-                  <strong>{currencyFormatter.format(includedTax)}</strong>
+                  <span>Taxes</span>
+                  <strong>Inclusive of all taxes</strong>
                 </div>
                 <div className="is-total">
                   <span>Total</span>
@@ -524,7 +1025,12 @@ export default function CheckoutPage({ categories }: CheckoutPageProps) {
               </p>
 
               <div className="checkout-actions">
-                <button className="checkout-submit" type="submit" form="checkout-form" disabled={paymentProcessing}>
+                <button
+                  className="checkout-submit"
+                  type="submit"
+                  form="checkout-form"
+                  disabled={paymentProcessing || shippingLoading || !selectedShipping}
+                >
                   <LockKeyhole size={16} aria-hidden="true" />
                   {paymentProcessing ? "Opening Razorpay..." : "Pay securely with Razorpay"}
                 </button>
@@ -544,8 +1050,8 @@ export default function CheckoutPage({ categories }: CheckoutPageProps) {
       </main>
       <AccountOtpModal
         open={authOpen && !authUser}
-        onClose={() => setAuthOpen(false)}
-        onUserChange={setAuthUser}
+        onClose={handleAuthClose}
+        onUserChange={handleUserChange}
         redirectTo="/checkout"
       />
     </>

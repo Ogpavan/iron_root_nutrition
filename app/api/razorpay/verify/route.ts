@@ -1,11 +1,12 @@
 import crypto from "crypto";
 import { NextResponse } from "next/server";
 import {
-  calculateCheckoutAmountPaise,
+  calculateCheckoutAmountWithDiscountPaise,
   createWooCommerceCheckoutOrder,
   type CheckoutCustomer,
   type CheckoutOrderItem
 } from "@/lib/checkout-orders";
+import { getCheckoutShippingOption } from "@/lib/checkout-shipping";
 
 type VerifyPaymentBody = {
   razorpay_order_id?: string;
@@ -14,6 +15,8 @@ type VerifyPaymentBody = {
   checkout?: {
     items?: CheckoutOrderItem[];
     customer?: CheckoutCustomer;
+    discountCode?: string;
+    shippingId?: string;
   };
 };
 
@@ -53,8 +56,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ verified: true, error: "Missing WooCommerce order details." }, { status: 400 });
     }
 
-    const [expectedAmount, razorpayOrderResponse] = await Promise.all([
-      calculateCheckoutAmountPaise(body.checkout.items),
+    const shipping = await getCheckoutShippingOption(
+      body.checkout.items,
+      body.checkout.customer,
+      body.checkout.shippingId,
+      body.checkout.discountCode
+    );
+    const [expectedCartAmount, razorpayOrderResponse] = await Promise.all([
+      calculateCheckoutAmountWithDiscountPaise(body.checkout.items, body.checkout.discountCode),
       fetch(`https://api.razorpay.com/v1/orders/${razorpay_order_id}`, {
         headers: {
           Authorization: `Basic ${Buffer.from(`${keyId}:${keySecret}`).toString("base64")}`
@@ -62,6 +71,7 @@ export async function POST(request: Request) {
       })
     ]);
     const razorpayOrder = (await razorpayOrderResponse.json()) as { amount?: number };
+    const expectedAmount = expectedCartAmount + Math.round(shipping.total * 100);
 
     if (!razorpayOrderResponse.ok || razorpayOrder.amount !== expectedAmount) {
       return NextResponse.json({ verified: false, error: "Paid amount does not match cart total." }, { status: 400 });
@@ -71,6 +81,8 @@ export async function POST(request: Request) {
       items: body.checkout.items,
       customer: body.checkout.customer,
       paymentMethod: "razorpay",
+      discountCode: body.checkout.discountCode,
+      shipping,
       razorpayOrderId: razorpay_order_id,
       razorpayPaymentId: razorpay_payment_id
     });
