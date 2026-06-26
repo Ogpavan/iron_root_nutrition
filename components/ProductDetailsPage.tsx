@@ -552,7 +552,6 @@ export default function ProductDetailsPage({
             >
               <li>Free delivery on orders over ₹999</li>
               <li>14-Day return policy</li>
-              <li>Buy now, pay later with IronRoot</li>
             </motion.ul>
 
             <motion.div
