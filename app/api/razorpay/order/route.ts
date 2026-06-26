@@ -5,6 +5,11 @@ import type { CheckoutCustomer } from "@/lib/checkout-orders";
 
 type CheckoutItem = {
   id?: number | string;
+  variationId?: number | string;
+  variationAttributes?: {
+    name?: string;
+    option?: string;
+  }[];
   href?: string;
   name?: string;
   quantity?: number;

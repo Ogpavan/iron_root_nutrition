@@ -98,6 +98,11 @@ export default function MiniCart() {
                         <a href={item.href ?? "#"} onClick={closeCart}>
                           {item.name}
                         </a>
+                        {item.variationAttributes?.length ? (
+                          <em className="mini-cart-variation">
+                            {item.variationAttributes.map((attribute) => `${attribute.name}: ${attribute.option}`).join(" / ")}
+                          </em>
+                        ) : null}
                         <strong>{item.price}</strong>
                         <div className="mini-cart-item-actions">
                           <div className="mini-cart-qty" aria-label={`Quantity for ${item.name}`}>

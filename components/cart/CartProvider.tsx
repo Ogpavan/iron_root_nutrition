@@ -2,8 +2,15 @@
 
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
+type CartVariationAttribute = {
+  name: string;
+  option: string;
+};
+
 export type CartProduct = {
   id?: number | string;
+  variationId?: number | string;
+  variationAttributes?: CartVariationAttribute[];
   name: string;
   price: string;
   image: string;
@@ -38,7 +45,8 @@ type RefreshCartResponse = {
 };
 
 function cartKey(product: CartProduct) {
-  return String(product.id ?? product.href ?? product.name);
+  const baseKey = String(product.id ?? product.href ?? product.name);
+  return product.variationId !== undefined ? `${baseKey}:${product.variationId}` : baseKey;
 }
 
 function readPrice(value: string) {
@@ -70,6 +78,22 @@ function normalizeStoredItems(value: unknown): CartItem[] {
 
       return {
         id: candidate.id,
+        variationId: candidate.variationId,
+        variationAttributes: Array.isArray(candidate.variationAttributes)
+          ? candidate.variationAttributes
+              .map((attribute) => {
+                if (!attribute || typeof attribute !== "object") {
+                  return null;
+                }
+
+                const variationAttribute = attribute as Partial<CartVariationAttribute>;
+
+                return typeof variationAttribute.name === "string" && typeof variationAttribute.option === "string"
+                  ? { name: variationAttribute.name, option: variationAttribute.option }
+                  : null;
+              })
+              .filter((attribute): attribute is CartVariationAttribute => Boolean(attribute))
+          : undefined,
         key: candidate.key,
         name: candidate.name,
         price: candidate.price,

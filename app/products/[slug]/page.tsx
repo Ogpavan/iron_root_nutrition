@@ -31,7 +31,7 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
 
 export default async function Page({ params }: ProductPageProps) {
   const { slug } = await params;
-  const [products, categories] = await Promise.all([getAllProducts(), getWooCategories()]);
+  const [products, categories] = await Promise.all([getAllProducts(100, { includeVariations: true }), getWooCategories()]);
   const product = products.find((item) => item.slug === slug);
 
   if (!product) {

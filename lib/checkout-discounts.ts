@@ -52,12 +52,14 @@ export async function calculateCheckoutSubtotal(items: CheckoutOrderItem[]) {
     throw new Error("Cart is empty.");
   }
 
-  const products = await getAllProducts(100);
+  const products = await getAllProducts(100, { includeVariations: true });
 
   return items.reduce((total, item) => {
     const product = products.find((candidate) => {
       return (
         (item.id !== undefined && String(candidate.id) === String(item.id)) ||
+        (item.variationId !== undefined &&
+          candidate.variations?.some((variation) => String(variation.id) === String(item.variationId))) ||
         (item.href && candidate.href === item.href) ||
         (item.name && candidate.name === item.name)
       );
@@ -67,7 +69,15 @@ export async function calculateCheckoutSubtotal(items: CheckoutOrderItem[]) {
       throw new Error(`Could not validate cart item: ${item.name ?? "Unknown product"}.`);
     }
 
-    return total + readPrice(product.price) * getQuantity(item.quantity);
+    const variation = item.variationId !== undefined
+      ? product.variations?.find((candidate) => String(candidate.id) === String(item.variationId))
+      : undefined;
+
+    if (item.variationId !== undefined && !variation) {
+      throw new Error(`Could not validate selected variation for ${item.name ?? product.name}.`);
+    }
+
+    return total + readPrice(variation?.price ?? product.price) * getQuantity(item.quantity);
   }, 0);
 }
 

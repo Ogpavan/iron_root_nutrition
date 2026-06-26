@@ -2,6 +2,31 @@ export const asset = (name: string) => `/assets/bolero/${name}`;
 export const heroImage =
   "https://admin.ironrootnutrition.com/wp-content/uploads/2026/06/ChatGPT-Image-Jun-19-2026-12_39_03-PM.png";
 
+export type ProductAttribute = {
+  id?: number;
+  name: string;
+  slug?: string;
+  options: string[];
+  visible?: boolean;
+  variation?: boolean;
+};
+
+export type ProductVariationAttribute = {
+  id?: number;
+  name: string;
+  slug?: string;
+  option: string;
+};
+
+export type ProductVariation = {
+  id: number;
+  sku?: string;
+  price: string;
+  image?: string;
+  stockStatus?: string;
+  attributes: ProductVariationAttribute[];
+};
+
 export type HomeProduct = {
   id?: number | string;
   sku?: string;
@@ -19,6 +44,9 @@ export type HomeProduct = {
   description?: string;
   shortDescription?: string;
   stockStatus?: string;
+  attributes?: ProductAttribute[];
+  defaultAttributes?: ProductVariationAttribute[];
+  variations?: ProductVariation[];
   tone: string;
   href?: string;
 };
@@ -176,7 +204,7 @@ export const news = [
     badge: "Creatine"
   },
   {
-    title: "Pre-workout focus without overcomplication",
+    title: "Protein support without overcomplication",
     image:
       "https://admin.ironrootnutrition.com/wp-content/uploads/2026/06/ChatGPT-Image-Jun-11-2026-03_23_40-PM-3.png",
     date: "11 Jun 2026",

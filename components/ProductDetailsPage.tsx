@@ -1,12 +1,12 @@
 "use client";
 
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { ChevronRight, Mail, Minus, Plus, Star, X } from "lucide-react";
+import { ChevronRight, Mail, Minus, Plus, ShoppingCart, Star, X, Zap } from "lucide-react";
 import Image from "next/image";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useCart } from "@/components/cart/CartProvider";
 import SiteHeader from "@/components/SiteHeader";
-import type { HomeProduct } from "@/lib/home-data";
+import type { HomeProduct, ProductVariation, ProductVariationAttribute } from "@/lib/home-data";
 import type { ProductReview, WooCatalogCategory } from "@/lib/woocommerce";
 
 type ProductDetailsPageProps = {
@@ -130,6 +130,160 @@ function PinterestIcon() {
   );
 }
 
+
+type SelectedVariationOptions = Record<string, string>;
+
+function normalizeVariationKey(value?: string) {
+  return String(value ?? "")
+    .toLowerCase()
+    .replace(/^pa[_-]/, "")
+    .replace(/[^a-z0-9]+/g, "");
+}
+
+function optionMatches(first?: string, second?: string) {
+  return normalizeVariationKey(first) === normalizeVariationKey(second);
+}
+
+function getVariationOption(variation: ProductVariation, attributeName: string) {
+  return variation.attributes.find((attribute) => optionMatches(attribute.name, attributeName))?.option ?? "";
+}
+
+function getSelectableAttributes(product: HomeProduct): NonNullable<HomeProduct["attributes"]> {
+  const directAttributes =
+    product.attributes?.filter((attribute) => attribute.variation !== false && attribute.options.length > 0) ?? [];
+
+  if (directAttributes.length > 0) {
+    return directAttributes;
+  }
+
+  const attributesByKey = new Map<string, { name: string; options: Set<string> }>();
+
+  product.variations?.forEach((variation) => {
+    variation.attributes.forEach((attribute) => {
+      const key = normalizeVariationKey(attribute.name);
+
+      if (!key || !attribute.option) {
+        return;
+      }
+
+      const current = attributesByKey.get(key) ?? { name: attribute.name, options: new Set<string>() };
+      current.options.add(attribute.option);
+      attributesByKey.set(key, current);
+    });
+  });
+
+  return Array.from(attributesByKey.values()).map((attribute) => ({
+    name: attribute.name,
+    options: Array.from(attribute.options),
+    visible: true,
+    variation: true
+  }));
+}
+
+function findMatchingOption(options: string[], value?: string) {
+  return options.find((option) => optionMatches(option, value));
+}
+
+function getInitialSelectedOptions(product: HomeProduct): SelectedVariationOptions {
+  const selected: SelectedVariationOptions = {};
+  const defaults = new Map(
+    product.defaultAttributes?.map((attribute) => [normalizeVariationKey(attribute.name), attribute.option]) ?? []
+  );
+
+  getSelectableAttributes(product).forEach((attribute) => {
+    const key = normalizeVariationKey(attribute.name);
+    const defaultOption = findMatchingOption(attribute.options, defaults.get(key));
+    const firstVariationOption = attribute.options.find((option) =>
+      product.variations?.some((variation) => optionMatches(getVariationOption(variation, attribute.name), option))
+    );
+
+    selected[key] = defaultOption ?? firstVariationOption ?? attribute.options[0] ?? "";
+  });
+
+  return selected;
+}
+
+function variationMatchesSelection(
+  variation: ProductVariation,
+  attributes: NonNullable<HomeProduct["attributes"]>,
+  selectedOptions: SelectedVariationOptions
+) {
+  return attributes.every((attribute) => {
+    const selected = selectedOptions[normalizeVariationKey(attribute.name)];
+    return selected && optionMatches(getVariationOption(variation, attribute.name), selected);
+  });
+}
+
+function variationOptionExists(
+  variations: ProductVariation[] | undefined,
+  attributes: NonNullable<HomeProduct["attributes"]>,
+  selectedOptions: SelectedVariationOptions,
+  attributeName: string,
+  option: string
+) {
+  if (!variations?.length) {
+    return true;
+  }
+
+  return variations.some((variation) => {
+    if (!optionMatches(getVariationOption(variation, attributeName), option)) {
+      return false;
+    }
+
+    return attributes.every((attribute) => {
+      if (optionMatches(attribute.name, attributeName)) {
+        return true;
+      }
+
+      const selected = selectedOptions[normalizeVariationKey(attribute.name)];
+      return !selected || optionMatches(getVariationOption(variation, attribute.name), selected);
+    });
+  });
+}
+
+function getSelectedVariationAttributes(
+  attributes: NonNullable<HomeProduct["attributes"]>,
+  selectedOptions: SelectedVariationOptions
+): ProductVariationAttribute[] {
+  return attributes.reduce<ProductVariationAttribute[]>((selectedAttributes, attribute) => {
+    const option = selectedOptions[normalizeVariationKey(attribute.name)];
+
+    if (!option) {
+      return selectedAttributes;
+    }
+
+    selectedAttributes.push({
+      name: attribute.name,
+      slug: attribute.slug,
+      option
+    });
+
+    return selectedAttributes;
+  }, []);
+}
+
+function buildCartProduct(
+  product: HomeProduct,
+  activeVariation: ProductVariation | undefined,
+  attributes: NonNullable<HomeProduct["attributes"]>,
+  selectedOptions: SelectedVariationOptions
+) {
+  const selectedAttributes = activeVariation?.attributes.length
+    ? activeVariation.attributes
+    : getSelectedVariationAttributes(attributes, selectedOptions);
+  const suffix = selectedAttributes.map((attribute) => attribute.option).filter(Boolean).join(" / ");
+
+  return {
+    id: product.id,
+    variationId: activeVariation?.id,
+    variationAttributes: selectedAttributes,
+    name: suffix ? `${product.name} - ${suffix}` : product.name,
+    price: activeVariation?.price ?? product.price,
+    image: activeVariation?.image ?? product.image,
+    tag: product.tag,
+    href: product.href
+  };
+}
 export default function ProductDetailsPage({
   product,
   relatedProducts,
@@ -141,10 +295,51 @@ export default function ProductDetailsPage({
   const [quantity, setQuantity] = useState(1);
   const [activeImage, setActiveImage] = useState(product.image);
   const [activeTab, setActiveTab] = useState("description");
+  const [selectedOptions, setSelectedOptions] = useState<SelectedVariationOptions>(() =>
+    getInitialSelectedOptions(product)
+  );
+  const selectableAttributes = useMemo(() => getSelectableAttributes(product), [product]);
+  const hasSelectableAttributes = selectableAttributes.length > 0;
   const gallery = useMemo(() => {
-    const images = [product.image, ...(product.galleryImages ?? [])];
+    const variationImages = product.variations?.map((variation) => variation.image).filter(Boolean) as string[] | undefined;
+    const images = [product.image, ...(product.galleryImages ?? []), ...(variationImages ?? [])];
     return Array.from(new Set(images.filter(Boolean)));
-  }, [product.galleryImages, product.image]);
+  }, [product.galleryImages, product.image, product.variations]);
+  const activeVariation = useMemo(() => {
+    if (!hasSelectableAttributes) {
+      return undefined;
+    }
+
+    return product.variations?.find((variation) =>
+      variationMatchesSelection(variation, selectableAttributes, selectedOptions)
+    );
+  }, [hasSelectableAttributes, product.variations, selectableAttributes, selectedOptions]);
+  const displayPrice = activeVariation?.price ?? product.price;
+  const displayStockStatus = activeVariation?.stockStatus ?? product.stockStatus;
+  const selectedCartProduct = useMemo(
+    () => buildCartProduct(product, activeVariation, selectableAttributes, selectedOptions),
+    [activeVariation, product, selectableAttributes, selectedOptions]
+  );
+  const addDisabled = hasSelectableAttributes && (!activeVariation || displayStockStatus === "outofstock");
+
+  useEffect(() => {
+    setSelectedOptions(getInitialSelectedOptions(product));
+    setActiveImage(product.image);
+  }, [product]);
+
+  useEffect(() => {
+    if (activeVariation?.image) {
+      setActiveImage(activeVariation.image);
+    }
+  }, [activeVariation?.image]);
+
+  const addSelectedItem = () => {
+    if (addDisabled) {
+      return;
+    }
+
+    addItem(selectedCartProduct, quantity);
+  };
 
   const description =
     product.description ||
@@ -252,15 +447,63 @@ export default function ProductDetailsPage({
               variants={detailCopyItem}
               transition={{ duration: 0.52, ease: "easeOut" }}
             >
-              {product.price}
+              {displayPrice}
             </motion.strong>
             <motion.p
               className="product-detail-stock"
               variants={detailCopyItem}
               transition={{ duration: 0.52, ease: "easeOut" }}
             >
-              {product.stockStatus === "outofstock" ? "Out of stock" : "In stock"}
+              {displayStockStatus === "outofstock" ? "Out of stock" : "In stock"}
             </motion.p>
+
+            {hasSelectableAttributes ? (
+              <motion.div
+                className="product-variation-options"
+                variants={detailCopyItem}
+                transition={{ duration: 0.52, ease: "easeOut" }}
+              >
+                {selectableAttributes.map((attribute) => {
+                  const attributeKey = normalizeVariationKey(attribute.name);
+
+                  return (
+                    <div className="product-variation-group" key={attributeKey}>
+                      <strong>{attribute.name}</strong>
+                      <div className="product-variation-values">
+                        {attribute.options.map((option) => {
+                          const isSelected = optionMatches(selectedOptions[attributeKey], option);
+                          const isAvailable = variationOptionExists(
+                            product.variations,
+                            selectableAttributes,
+                            selectedOptions,
+                            attribute.name,
+                            option
+                          );
+
+                          return (
+                            <button
+                              type="button"
+                              key={option}
+                              className={isSelected ? "is-selected" : undefined}
+                              disabled={!isAvailable}
+                              onClick={() =>
+                                setSelectedOptions((current) => ({
+                                  ...current,
+                                  [attributeKey]: option
+                                }))
+                              }
+                            >
+                              {option}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+                {!activeVariation ? <p>Choose an available variation.</p> : null}
+              </motion.div>
+            ) : null}
 
             <motion.div
               className="product-detail-actions"
@@ -284,8 +527,9 @@ export default function ProductDetailsPage({
                   <Plus size={15} aria-hidden="true" />
                 </button>
               </div>
-              <button type="button" className="product-add-button" onClick={() => addItem(product, quantity)}>
-                Add to cart
+              <button type="button" className="product-add-button" onClick={addSelectedItem} disabled={addDisabled}>
+                <ShoppingCart size={17} aria-hidden="true" />
+                <span>Add to cart</span>
               </button>
             </motion.div>
 
@@ -294,9 +538,11 @@ export default function ProductDetailsPage({
               className="product-buy-button"
               variants={detailCopyItem}
               transition={{ duration: 0.52, ease: "easeOut" }}
-              onClick={() => addItem(product, quantity)}
+              onClick={addSelectedItem}
+              disabled={addDisabled}
             >
-              Buy it now
+              <Zap size={17} aria-hidden="true" />
+              <span>Buy it now</span>
             </motion.button>
 
             <motion.ul

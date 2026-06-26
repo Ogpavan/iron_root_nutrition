@@ -14,9 +14,32 @@ type WooCategory = {
   };
 };
 
+type WooProductAttribute = {
+  id?: number;
+  name?: string;
+  slug?: string;
+  options?: string[];
+  visible?: boolean;
+  variation?: boolean;
+};
+
+type WooVariationAttribute = {
+  id?: number;
+  name?: string;
+  slug?: string;
+  option?: string;
+};
+
+type WooDefaultAttribute = {
+  id?: number;
+  name?: string;
+  option?: string;
+};
+
 type WooProduct = {
   id: number;
   name: string;
+  type?: string;
   slug?: string;
   sku?: string;
   price?: string;
@@ -27,10 +50,41 @@ type WooProduct = {
   stock_status?: string;
   images?: WooImage[];
   categories?: WooCategory[];
+  attributes?: WooProductAttribute[];
+  default_attributes?: WooDefaultAttribute[];
+  variations?: number[];
   meta_data?: {
     key?: string;
     value?: unknown;
   }[];
+};
+
+type WooProductVariation = {
+  id: number;
+  sku?: string;
+  price?: string;
+  price_html?: string;
+  stock_status?: string;
+  image?: WooImage;
+  attributes?: WooVariationAttribute[];
+};
+
+type WooCredentials = {
+  siteUrl: string;
+  consumerKey: string;
+  consumerSecret: string;
+};
+
+type MappedProductAttribute = NonNullable<HomeProduct["attributes"]>[number];
+type MappedProductVariation = NonNullable<HomeProduct["variations"]>[number];
+type MappedVariationAttribute = NonNullable<HomeProduct["defaultAttributes"]>[number];
+type ProductFetchOptions = {
+  includeVariations?: boolean;
+};
+
+type PriceLike = {
+  price?: string;
+  price_html?: string;
 };
 
 type WooProductReview = {
@@ -72,7 +126,7 @@ function cleanHtml(value?: string) {
     .trim();
 }
 
-function formatPrice(product: WooProduct) {
+function formatPrice(product: PriceLike) {
   if (product.price) {
     const amount = Number(product.price);
 
@@ -112,7 +166,132 @@ function getMetaString(product: WooProduct, keys: string[]) {
   return undefined;
 }
 
-function mapProduct(product: WooProduct, index: number): HomeProduct {
+function getWooHeaders(consumerKey: string, consumerSecret: string) {
+  return {
+    Accept: "application/json",
+    Authorization: `Basic ${Buffer.from(`${consumerKey}:${consumerSecret}`).toString("base64")}`
+  };
+}
+
+function mapProductAttributes(product: WooProduct): MappedProductAttribute[] | undefined {
+  const attributes = product.attributes?.reduce<MappedProductAttribute[]>((mappedAttributes, attribute) => {
+    const name = attribute.name?.trim();
+    const options = attribute.options?.map((option) => option.trim()).filter(Boolean) ?? [];
+
+    if (!name || options.length === 0) {
+      return mappedAttributes;
+    }
+
+    mappedAttributes.push({
+      id: attribute.id,
+      name,
+      slug: attribute.slug,
+      options,
+      visible: attribute.visible,
+      variation: attribute.variation
+    });
+
+    return mappedAttributes;
+  }, []);
+
+  return attributes && attributes.length > 0 ? attributes : undefined;
+}
+
+function mapDefaultAttributes(product: WooProduct): MappedVariationAttribute[] | undefined {
+  const attributes = product.default_attributes?.reduce<MappedVariationAttribute[]>((mappedAttributes, attribute) => {
+    const name = attribute.name?.trim();
+    const option = attribute.option?.trim();
+
+    if (!name || !option) {
+      return mappedAttributes;
+    }
+
+    mappedAttributes.push({
+      id: attribute.id,
+      name,
+      slug: attribute.name ? slugify(attribute.name) : undefined,
+      option
+    });
+
+    return mappedAttributes;
+  }, []);
+
+  return attributes && attributes.length > 0 ? attributes : undefined;
+}
+
+function mapVariationAttributes(variation: WooProductVariation): MappedVariationAttribute[] {
+  return (variation.attributes ?? []).reduce<MappedVariationAttribute[]>((mappedAttributes, attribute) => {
+    const name = attribute.name?.trim();
+    const option = attribute.option?.trim();
+
+    if (!name || !option) {
+      return mappedAttributes;
+    }
+
+    mappedAttributes.push({
+      id: attribute.id,
+      name,
+      slug: attribute.slug || slugify(name),
+      option
+    });
+
+    return mappedAttributes;
+  }, []);
+}
+
+async function getWooProductVariations(
+  product: WooProduct,
+  credentials: WooCredentials
+): Promise<MappedProductVariation[]> {
+  const hasVariationAttributes = product.attributes?.some((attribute) => attribute.variation && attribute.options?.length);
+
+  if (product.type !== "variable" && !hasVariationAttributes && !product.variations?.length) {
+    return [];
+  }
+
+  const endpoint = new URL(`/wp-json/wc/v3/products/${product.id}/variations`, credentials.siteUrl);
+  endpoint.searchParams.set("per_page", "100");
+
+  try {
+    const response = await fetch(endpoint, {
+      headers: getWooHeaders(credentials.consumerKey, credentials.consumerSecret),
+      cache: "no-store"
+    });
+
+    if (!response.ok) {
+      return [];
+    }
+
+    const data: unknown = await response.json();
+
+    if (!Array.isArray(data)) {
+      return [];
+    }
+
+    return data.reduce<MappedProductVariation[]>((mappedVariations, item) => {
+      const variation = item as WooProductVariation;
+
+      if (!variation.id) {
+        return mappedVariations;
+      }
+
+      mappedVariations.push({
+        id: variation.id,
+        sku: variation.sku,
+        price: formatPrice(variation),
+        image: variation.image?.src,
+        stockStatus: variation.stock_status,
+        attributes: mapVariationAttributes(variation)
+      });
+
+      return mappedVariations;
+    }, []);
+  } catch {
+    return [];
+  }
+}
+
+function mapProduct(product: WooProduct, index: number, variations: MappedProductVariation[] = []): HomeProduct {
   const fallback = fallbackProducts[index % fallbackProducts.length];
   const slug = product.slug || slugify(product.name || fallback.name);
   const galleryImages = product.images?.map((image) => image.src).filter(Boolean) as string[] | undefined;
@@ -150,6 +329,9 @@ function mapProduct(product: WooProduct, index: number): HomeProduct {
     description: cleanHtml(product.description),
     shortDescription: cleanHtml(product.short_description),
     stockStatus: product.stock_status,
+    attributes: mapProductAttributes(product),
+    defaultAttributes: mapDefaultAttributes(product),
+    variations: variations.length > 0 ? variations : undefined,
     tone: productTones[index % productTones.length],
     href: `/products/${slug}`
   };
@@ -172,7 +354,11 @@ function mapFallbackProduct(product: HomeProduct, index: number): HomeProduct {
   };
 }
 
-async function getWooProducts(limit: number, fallback: HomeProduct[]): Promise<HomeProduct[]> {
+async function getWooProducts(
+  limit: number,
+  fallback: HomeProduct[],
+  options: ProductFetchOptions = {}
+): Promise<HomeProduct[]> {
   const siteUrl = process.env.WORDPRESS_SITE_URL;
   const consumerKey = process.env.WOOCOMMERCE_CONSUMER_KEY;
   const consumerSecret = process.env.WOOCOMMERCE_CONSUMER_SECRET;
@@ -189,10 +375,7 @@ async function getWooProducts(limit: number, fallback: HomeProduct[]): Promise<H
 
   try {
     const response = await fetch(endpoint, {
-      headers: {
-        Accept: "application/json",
-        Authorization: `Basic ${Buffer.from(`${consumerKey}:${consumerSecret}`).toString("base64")}`
-      },
+      headers: getWooHeaders(consumerKey, consumerSecret),
       cache: "no-store"
     });
 
@@ -206,7 +389,17 @@ async function getWooProducts(limit: number, fallback: HomeProduct[]): Promise<H
       return fallback.map(mapFallbackProduct);
     }
 
-    const products = data.map((product, index) => mapProduct(product as WooProduct, index));
+    const wooProducts = data as WooProduct[];
+    const credentials = { siteUrl, consumerKey, consumerSecret };
+    const products = await Promise.all(
+      wooProducts.map(async (product, index) => {
+        const variations = options.includeVariations
+          ? await getWooProductVariations(product, credentials)
+          : [];
+
+        return mapProduct(product, index, variations);
+      })
+    );
 
     return products.length > 0 ? products : fallback.map(mapFallbackProduct);
   } catch {
@@ -218,8 +411,8 @@ export async function getHomeProducts(limit = 5): Promise<HomeProduct[]> {
   return getWooProducts(limit, fallbackProducts.slice(0, limit));
 }
 
-export async function getAllProducts(limit = 48): Promise<HomeProduct[]> {
-  return getWooProducts(limit, fallbackProducts);
+export async function getAllProducts(limit = 48, options?: ProductFetchOptions): Promise<HomeProduct[]> {
+  return getWooProducts(limit, fallbackProducts, options);
 }
 
 function mapProductReview(review: WooProductReview, index: number): ProductReview {
@@ -250,10 +443,7 @@ export async function getProductReviews(productId?: number, limit = 6): Promise<
 
   try {
     const response = await fetch(endpoint, {
-      headers: {
-        Accept: "application/json",
-        Authorization: `Basic ${Buffer.from(`${consumerKey}:${consumerSecret}`).toString("base64")}`
-      },
+      headers: getWooHeaders(consumerKey, consumerSecret),
       next: {
         revalidate: 300
       }
@@ -435,10 +625,7 @@ export async function getWooCategories(limit = 6): Promise<WooCatalogCategory[]>
 
   try {
     const response = await fetch(endpoint, {
-      headers: {
-        Accept: "application/json",
-        Authorization: `Basic ${Buffer.from(`${consumerKey}:${consumerSecret}`).toString("base64")}`
-      },
+      headers: getWooHeaders(consumerKey, consumerSecret),
       next: {
         revalidate: 300
       }

@@ -63,6 +63,11 @@ type CheckoutCustomer = {
 type CheckoutPayload = {
   items: {
     id?: number | string;
+    variationId?: number | string;
+    variationAttributes?: {
+      name: string;
+      option: string;
+    }[];
     href?: string;
     name: string;
     quantity: number;
@@ -164,6 +169,17 @@ function getFormString(formData: FormData, key: string) {
   return String(formData.get(key) ?? "").trim();
 }
 
+function getCheckoutItems(items: CheckoutPayload["items"]): CheckoutPayload["items"] {
+  return items.map((item) => ({
+    id: item.id,
+    variationId: item.variationId,
+    variationAttributes: item.variationAttributes,
+    href: item.href,
+    name: item.name,
+    quantity: item.quantity
+  }));
+}
+
 function buildCheckoutPayload(
   formData: FormData,
   items: CheckoutPayload["items"],
@@ -171,12 +187,7 @@ function buildCheckoutPayload(
   shippingId?: string
 ): CheckoutPayload {
   return {
-    items: items.map((item) => ({
-      id: item.id,
-      href: item.href,
-      name: item.name,
-      quantity: item.quantity
-    })),
+    items: getCheckoutItems(items),
     customer: {
       firstName: getFormString(formData, "firstName"),
       lastName: getFormString(formData, "lastName"),
@@ -434,12 +445,7 @@ export default function CheckoutPage({ categories }: CheckoutPageProps) {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            items: items.map((item) => ({
-              id: item.id,
-              href: item.href,
-              name: item.name,
-              quantity: item.quantity
-            })),
+            items: getCheckoutItems(items),
             customer,
             discountCode: appliedDiscount?.code
           }),
@@ -528,12 +534,7 @@ export default function CheckoutPage({ categories }: CheckoutPageProps) {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          items: items.map((item) => ({
-            id: item.id,
-            href: item.href,
-            name: item.name,
-            quantity: item.quantity
-          })),
+          items: getCheckoutItems(items),
           customer: checkoutPayload.customer,
           discountCode: appliedDiscount?.code,
           shippingId: selectedShipping?.id
@@ -633,12 +634,7 @@ export default function CheckoutPage({ categories }: CheckoutPageProps) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          items: items.map((item) => ({
-            id: item.id,
-            href: item.href,
-            name: item.name,
-            quantity: item.quantity
-          })),
+          items: getCheckoutItems(items),
           discountCode: normalizedCode
         })
       });
@@ -933,7 +929,11 @@ export default function CheckoutPage({ categories }: CheckoutPageProps) {
                       </span>
                       <div>
                         <strong>{item.name}</strong>
-                        <small>{item.tag ?? "IronRoot"}</small>
+                        <small>
+                          {item.variationAttributes?.length
+                            ? item.variationAttributes.map((attribute) => `${attribute.name}: ${attribute.option}`).join(" / ")
+                            : item.tag ?? "IronRoot"}
+                        </small>
                       </div>
                       <span>{currencyFormatter.format(linePrice)}</span>
                     </div>

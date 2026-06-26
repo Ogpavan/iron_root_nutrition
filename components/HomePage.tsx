@@ -522,8 +522,8 @@ function SplitBenefit({ products }: { products: HomeProduct[] }) {
 function IceTeaBanner({ products }: { products: HomeProduct[] }) {
   const bannerImage =
     "https://admin.ironrootnutrition.com/wp-content/uploads/2026/06/ChatGPT-Image-Jun-11-2026-03_12_46-PM.png";
-  const creatineProduct = findProductByAliases(products, ["creatine", "creatine monohydrate"]);
-  const creatineHref = creatineProduct?.href ?? "/all-products?category=creatine";
+  const glutamineProduct = findProductByAliases(products, ["glutamine"]);
+  const glutamineHref = glutamineProduct?.href ?? "/all-products?category=glutamine";
 
   return (
     <MotionSection className="ice-banner">
@@ -536,11 +536,10 @@ function IceTeaBanner({ products }: { products: HomeProduct[] }) {
       <div>
         <p className="eyebrow light">Strength essential</p>
         <h2>
-          Creatine
-          <span>monohydrate</span>
+          Glutamine
         </h2>
-        <a className="pill light" href={creatineHref}>
-          Shop creatine
+        <a className="pill light" href={glutamineHref}>
+          Shop glutamine
         </a>
       </div>
     </MotionSection>

@@ -4,6 +4,11 @@ import type { CheckoutShippingOption } from "@/lib/checkout-shipping";
 
 export type CheckoutOrderItem = {
   id?: number | string;
+  variationId?: number | string;
+  variationAttributes?: {
+    name?: string;
+    option?: string;
+  }[];
   href?: string;
   name?: string;
   quantity?: number;
@@ -101,24 +106,34 @@ export async function createWooCommerceCheckoutOrder({
   }
 
   const { siteUrl, consumerKey, consumerSecret } = getWooCredentials();
-  const products = await getAllProducts(100);
+  const products = await getAllProducts(100, { includeVariations: true });
   const lineItems = items.map((item) => {
     const product = products.find((candidate) => {
       return (
         (item.id !== undefined && String(candidate.id) === String(item.id)) ||
+        (item.variationId !== undefined &&
+          candidate.variations?.some((variation) => String(variation.id) === String(item.variationId))) ||
         (item.href && candidate.href === item.href) ||
         (item.name && candidate.name === item.name)
       );
     });
 
     const productId = typeof product?.id === "number" ? product.id : Number(product?.id);
+    const variation = item.variationId !== undefined
+      ? product?.variations?.find((candidate) => String(candidate.id) === String(item.variationId))
+      : undefined;
 
     if (!product || !Number.isFinite(productId)) {
       throw new Error(`Could not validate cart item: ${item.name ?? "Unknown product"}.`);
     }
 
+    if (item.variationId !== undefined && !variation) {
+      throw new Error(`Could not validate selected variation for ${item.name ?? product.name}.`);
+    }
+
     return {
       product_id: productId,
+      variation_id: variation?.id,
       quantity: getQuantity(item.quantity)
     };
   });
