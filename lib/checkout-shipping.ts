@@ -197,8 +197,22 @@ function mapMethodToOption(method: WooShippingMethod, subtotal: number): Checkou
 
 async function getZoneShippingOptions(zoneId: number, subtotal: number) {
   const methods = await getWooJson<WooShippingMethod[]>(`/wp-json/wc/v3/shipping/zones/${zoneId}/methods`);
+  const refreshedMethods = await Promise.all(
+    methods.map(async (method) => {
+      if (method.instance_id === undefined) {
+        return method;
+      }
 
-  return methods
+      // The collection endpoint can return stale settings; the instance endpoint is authoritative.
+      return (
+        await getOptionalWooJson<WooShippingMethod>(
+          `/wp-json/wc/v3/shipping/zones/${zoneId}/methods/${method.instance_id}`
+        )
+      ) ?? method;
+    })
+  );
+
+  return refreshedMethods
     .map((method) => mapMethodToOption(method, subtotal))
     .filter((option): option is CheckoutShippingOption => Boolean(option))
     .sort((first, second) => first.total - second.total);

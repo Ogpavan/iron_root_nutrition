@@ -164,7 +164,6 @@ export async function createWooCommerceCheckoutOrder({
       ? [{
           method_id: shipping.methodId,
           method_title: shipping.title,
-          instance_id: shipping.instanceId,
           total: shipping.total.toFixed(2)
         }]
       : undefined,
