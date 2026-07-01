@@ -262,6 +262,21 @@ function getSelectedVariationAttributes(
   }, []);
 }
 
+function readPrice(value?: string) {
+  const parsed = Number(String(value ?? "").replace(/[^0-9.]/g, ""));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function getDiscountPercent(priceValue?: string, mrpValue?: string) {
+  const price = readPrice(priceValue);
+  const mrp = readPrice(mrpValue);
+
+  if (price <= 0 || mrp <= price) {
+    return 0;
+  }
+
+  return Math.round(((mrp - price) / mrp) * 100);
+}
 function buildCartProduct(
   product: HomeProduct,
   activeVariation: ProductVariation | undefined,
@@ -315,6 +330,8 @@ export default function ProductDetailsPage({
     );
   }, [hasSelectableAttributes, product.variations, selectableAttributes, selectedOptions]);
   const displayPrice = activeVariation?.price ?? product.price;
+  const displayMrp = activeVariation?.mrp ?? product.mrp;
+  const discountPercent = getDiscountPercent(displayPrice, displayMrp);
   const displayStockStatus = activeVariation?.stockStatus ?? product.stockStatus;
   const selectedCartProduct = useMemo(
     () => buildCartProduct(product, activeVariation, selectableAttributes, selectedOptions),
@@ -392,7 +409,14 @@ export default function ProductDetailsPage({
                   transition={{ duration: 0.38, ease: "easeOut" }}
                   whileHover={reduceMotion ? undefined : { y: -2 }}
                 >
-                  <Image src={image} width={86} height={100} alt="" aria-hidden="true" />
+                  <Image
+                    src={image}
+                    width={86}
+                    height={100}
+                    alt=""
+                    aria-hidden="true"
+                    loading={index === 0 ? "eager" : "lazy"}
+                  />
                 </motion.button>
               ))}
             </motion.div>
@@ -442,13 +466,19 @@ export default function ProductDetailsPage({
             >
               {product.name}
             </motion.h1>
-            <motion.strong
-              className="product-detail-price"
+            <motion.div
+              className="product-detail-price-row"
               variants={detailCopyItem}
               transition={{ duration: 0.52, ease: "easeOut" }}
             >
-              {displayPrice}
-            </motion.strong>
+              <strong className="product-detail-price">{displayPrice}</strong>
+              {displayMrp && discountPercent > 0 ? (
+                <>
+                  <span className="product-detail-mrp">{displayMrp}</span>
+                  <span className="product-discount-badge product-detail-discount-badge">{discountPercent}% off</span>
+                </>
+              ) : null}
+            </motion.div>
             <motion.p
               className="product-detail-stock"
               variants={detailCopyItem}

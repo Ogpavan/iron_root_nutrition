@@ -131,10 +131,16 @@ export async function createWooCommerceCheckoutOrder({
       throw new Error(`Could not validate selected variation for ${item.name ?? product.name}.`);
     }
 
+    const quantity = getQuantity(item.quantity);
+    const unitPrice = readPrice(variation?.price ?? product.price);
+    const lineTotal = (unitPrice * quantity).toFixed(2);
+
     return {
       product_id: productId,
       variation_id: variation?.id,
-      quantity: getQuantity(item.quantity)
+      quantity,
+      subtotal: lineTotal,
+      total: lineTotal
     };
   });
   const country = normalizeCountry(customer.country || "IN");

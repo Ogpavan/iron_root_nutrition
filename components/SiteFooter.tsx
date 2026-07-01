@@ -21,7 +21,7 @@ const categories = [
   { label: "Pre Workout", href: "/all-products?category=pre-workout", icon: Zap },
   { label: "Creatine", href: "/all-products?category=creatine", icon: FlaskConical },
   { label: "BCAA", href: "/all-products?category=bcaa", icon: FlaskConical },
-  { label: "Multivitamins", href: "/all-products?category=multivitamin", icon: Package }
+  { label: "Post Workout", href: "/all-products?category=glutamine", icon: Package }
 ];
 
 const helpLinks = [
@@ -167,8 +167,8 @@ export default function SiteFooter() {
       <div className="footer-bottom">
         <p>© 2026 IronRoot Nutrition. All rights reserved.</p>
         <nav aria-label="Footer legal links">
-          <a href="/support#faq">Privacy Policy</a>
-          <a href="/support#faq">Terms of Service</a>
+          <a href="/privacy-policy">Privacy Policy</a>
+          <a href="/terms-of-service">Terms of Service</a>
           <a href="/support#faq">Refund Policy</a>
           <a href="/support#faq">Track Your Order</a>
           <a href="/sitemap.xml">Sitemap</a>

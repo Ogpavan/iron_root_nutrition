@@ -121,9 +121,20 @@ function getProductCategoryKeys(product: HomeProduct) {
   return keys;
 }
 
-function readPrice(value: string) {
-  const parsed = Number(value.replace(/[^0-9.]/g, ""));
+function readPrice(value?: string) {
+  const parsed = Number(String(value ?? "").replace(/[^0-9.]/g, ""));
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function getDiscountPercent(product: HomeProduct) {
+  const price = readPrice(product.price) ?? 0;
+  const mrp = readPrice(product.mrp) ?? 0;
+
+  if (price <= 0 || mrp <= price) {
+    return 0;
+  }
+
+  return Math.round(((mrp - price) / mrp) * 100);
 }
 
 export default function AllProductsPage({
@@ -524,7 +535,17 @@ export default function AllProductsPage({
                       <a className="collection-card-title" href={product.href ?? "#"}>
                         {product.name}
                       </a>
-                      <strong className="collection-card-price">{product.price}</strong>
+                      <div className="collection-price-row">
+                        <strong className="collection-card-price">{product.price}</strong>
+                        {product.mrp && getDiscountPercent(product) > 0 ? (
+                          <>
+                            <span className="collection-card-mrp">{product.mrp}</span>
+                            <span className="product-discount-badge collection-discount-badge">
+                              {getDiscountPercent(product)}% off
+                            </span>
+                          </>
+                        ) : null}
+                      </div>
                     </div>
                   </motion.article>
                 ))}

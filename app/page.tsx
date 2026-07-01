@@ -40,8 +40,9 @@ function getFeaturedProducts(products: HomeProduct[]) {
   const featuredAliases = [
     ["myofuel whey protein", "myo fuel whey protein", "myofuel whey", "myo fuel whey"],
     ["pro fusion", "profusion"],
-    ["casein"],
-    ["big build weight gainer", "big build wieght gainer", "big build", "weight gainer"]
+    ["alpha grid", "alphagrid"],
+    ["big build weight gainer", "big build wieght gainer", "big build", "weight gainer"],
+    ["titan meal", "mass gainer"]
   ];
   const selected = featuredAliases
     .map((aliases) => findProductByAliases(products, aliases))

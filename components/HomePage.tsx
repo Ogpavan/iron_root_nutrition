@@ -96,24 +96,13 @@ function MotionSection({
 }
 
 function Hero() {
-  const reduceMotion = useReducedMotion();
-  const heroRef = useRef<HTMLElement>(null);
-  const { scrollYProgress } = useScroll({
-    target: heroRef,
-    offset: ["start start", "end start"]
-  });
-  const heroImageY = useTransform(scrollYProgress, [0, 1], ["-5%", "10%"]);
-
   return (
-    <section className="hero-shell" aria-labelledby="hero-title" ref={heroRef}>
+    <section className="hero-shell" aria-labelledby="hero-title">
       <motion.div
         className="hero"
         initial={false}
       >
-        <motion.div
-          className="hero-image-layer"
-          style={reduceMotion ? undefined : { y: heroImageY }}
-        >
+        <div className="hero-image-layer">
           <Image
             src={heroImage}
             alt="IronRoot whey protein tubs on an orange splash background"
@@ -130,7 +119,7 @@ function Hero() {
             sizes="(max-width: 820px) calc(100vw - 20px), 1px"
             className="hero-image hero-image-mobile"
           />
-        </motion.div>
+        </div>
         <div className="hero-content">
           <motion.p
             className="eyebrow light"
@@ -170,7 +159,23 @@ function Hero() {
   );
 }
 
+function readPrice(value?: string) {
+  const parsed = Number(String(value ?? "").replace(/[^0-9.]/g, ""));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function getDiscountPercent(product: HomeProduct) {
+  const price = readPrice(product.price);
+  const mrp = readPrice(product.mrp);
+
+  if (price <= 0 || mrp <= price) {
+    return 0;
+  }
+
+  return Math.round(((mrp - price) / mrp) * 100);
+}
 function ProductCard({ product, index }: { product: HomeProduct; index: number }) {
+  const discountPercent = getDiscountPercent(product);
   return (
     <motion.article
       className="product-card"
@@ -197,7 +202,15 @@ function ProductCard({ product, index }: { product: HomeProduct; index: number }
       </a>
       <p>{product.tag}</p>
       <h3>{product.name}</h3>
-      <strong>{product.price}</strong>
+      <div className="product-price-row">
+        <strong>{product.price}</strong>
+        {product.mrp && discountPercent > 0 ? (
+          <>
+            <span className="product-card-mrp">{product.mrp}</span>
+            <span className="product-discount-badge">{discountPercent}% off</span>
+          </>
+        ) : null}
+      </div>
     </motion.article>
   );
 }
@@ -489,36 +502,35 @@ function StrawberryFeature({ products }: { products: HomeProduct[] }) {
 
 function SplitBenefit({ products }: { products: HomeProduct[] }) {
   const benefitImage =
-    "https://admin.ironrootnutrition.com/wp-content/uploads/2026/06/ChatGPT-Image-Jun-11-2026-02_59_07-PM.png";
-  const fishOilProduct = findProductByAliases(products, ["fish oil", "fish-oil", "omega"]);
-  const fishOilHref = fishOilProduct?.href ?? "/all-products?category=fish-oil";
+    "https://admin.ironrootnutrition.com/wp-content/uploads/2026/07/ChatGPT-Image-Jul-1-2026-03_58_16-PM.png";
+  const gainerProduct = findProductByAliases(products, ["titan meal", "big build", "mass gainer", "weight gainer"]);
+  const gainerHref = gainerProduct?.href ?? "/all-products?category=mass-gainer";
 
   return (
     <MotionSection id="bottles" className="split-benefit">
       <figure>
         <Image
           src={benefitImage}
-          alt="Bolero drink mix product display"
+          alt="IronRoot mass gainer product display"
           fill
           sizes="(max-width: 900px) 100vw, 50vw"
         />
       </figure>
       <div className="benefit-copy">
-        <p className="eyebrow">What IronRoot gives you</p>
-        <h2>Performance nutrition made simple</h2>
+        <p className="eyebrow">Mass gainer support</p>
+        <h2>High-calorie nutrition for steady gains</h2>
         <p>
-          Clean, reliable supplements for strength, recovery, and daily wellness.
-          From protein to pre-workout and essentials, every product is built to
-          support consistent training with no unnecessary complexity.
+          Dense, reliable gainer formulas built for athletes who need more calories,
+          quality protein, and training-day fuel. Support your bulking phase with
+          smooth nutrition that fits a consistent strength routine.
         </p>
-        <a className="pill outline dark-text" href={fishOilHref}>
-          Shop Fish Oil
+        <a className="pill outline dark-text" href={gainerHref}>
+          Shop Mass Gainer
         </a>
       </div>
     </MotionSection>
   );
 }
-
 function IceTeaBanner({ products }: { products: HomeProduct[] }) {
   const bannerImage =
     "https://admin.ironrootnutrition.com/wp-content/uploads/2026/06/ChatGPT-Image-Jun-11-2026-03_12_46-PM.png";
@@ -529,7 +541,7 @@ function IceTeaBanner({ products }: { products: HomeProduct[] }) {
     <MotionSection className="ice-banner">
       <Image
         src={bannerImage}
-        alt="IronRoot creatine product banner"
+        alt="IronRoot glutamine product banner"
         fill
         sizes="(max-width: 760px) calc(100vw - 32px), calc(100vw - 84px)"
       />
@@ -561,7 +573,7 @@ function LatestNews() {
             transition={{ duration: 0.5, delay: index * 0.08 }}
             whileHover={{ y: -7 }}
           >
-            <a className="news-image" href="#blog" aria-label={item.title}>
+            <a className="news-image" href={`/blog/${item.slug}`} aria-label={item.title}>
               {item.badge ? <span>{item.badge}</span> : null}
               <Image
                 src={item.image}
@@ -574,7 +586,7 @@ function LatestNews() {
             <p>
               {item.date} <span>by {item.author}</span>
             </p>
-            <a className="read-more" href="#blog">
+            <a className="read-more" href={`/blog/${item.slug}`}>
               Read more <ArrowRight size={14} />
             </a>
           </motion.article>

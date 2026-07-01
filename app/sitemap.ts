@@ -1,9 +1,10 @@
 import type { MetadataRoute } from "next";
+import { news } from "@/lib/home-data";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://ironrootnutrition.local";
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  return [
+  const staticEntries: MetadataRoute.Sitemap = [
     {
       url: siteUrl,
       lastModified: new Date(),
@@ -21,6 +22,35 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified: new Date(),
       changeFrequency: "monthly",
       priority: 0.6
+    },
+    {
+      url: `${siteUrl}/blog`,
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.6
+    },
+    {
+      url: `${siteUrl}/privacy-policy`,
+      lastModified: new Date(),
+      changeFrequency: "yearly",
+      priority: 0.4
+    },
+    {
+      url: `${siteUrl}/terms-of-service`,
+      lastModified: new Date(),
+      changeFrequency: "yearly",
+      priority: 0.4
     }
   ];
+
+  const blogEntries = news.map(
+    (item): MetadataRoute.Sitemap[number] => ({
+      url: `${siteUrl}/blog/${item.slug}`,
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.5
+    })
+  );
+
+  return [...staticEntries, ...blogEntries];
 }

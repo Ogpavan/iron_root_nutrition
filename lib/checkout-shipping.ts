@@ -244,16 +244,12 @@ export async function getCheckoutShippingOptions(
 ) {
   const pricing = await calculateDiscountedCheckoutAmountPaise(items, discountCode);
   const zones = await getShippingZones();
-  const fallbackZone = { id: 0, name: "Everywhere" };
-  const zonesWithFallback = zones.some((zone) => zone.id === 0)
-    ? zones
-    : [...zones, fallbackZone];
+  const specificZones = zones.filter((zone) => zone.id !== 0);
+  const fallbackZone = zones.find((zone) => zone.id === 0) ?? { id: 0, name: "Everywhere" };
   const allOptions: CheckoutShippingOption[] = [];
 
-  for (const zone of zonesWithFallback) {
-    const locations = zone.id === 0
-      ? []
-      : await getWooJson<WooShippingZoneLocation[]>(`/wp-json/wc/v3/shipping/zones/${zone.id}/locations`);
+  for (const zone of specificZones) {
+    const locations = await getWooJson<WooShippingZoneLocation[]>(`/wp-json/wc/v3/shipping/zones/${zone.id}/locations`);
 
     if (!zoneMatches(locations, customer)) {
       continue;
@@ -267,9 +263,17 @@ export async function getCheckoutShippingOptions(
     }
   }
 
-  for (const zone of [fallbackZone, ...zones]) {
-    const options = await getZoneShippingOptions(zone.id, pricing.total);
+  const fallbackLocations = fallbackZone.id === 0
+    ? []
+    : await getWooJson<WooShippingZoneLocation[]>(`/wp-json/wc/v3/shipping/zones/${fallbackZone.id}/locations`);
+
+  if (zoneMatches(fallbackLocations, customer)) {
+    const options = await getZoneShippingOptions(fallbackZone.id, pricing.total);
     allOptions.push(...options);
+
+    if (options.length > 0) {
+      return options;
+    }
   }
 
   return allOptions

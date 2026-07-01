@@ -1,5 +1,6 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import { motion } from "framer-motion";
 import Image from "next/image";
 import type { WooCatalogCategory } from "@/lib/woocommerce";
@@ -17,7 +18,13 @@ export default function CategoryMegaMenu({
   onMouseEnter,
   onMouseLeave
 }: CategoryMegaMenuProps) {
-  if (categories.length === 0) {
+  const visibleCategories = categories.filter((category) => {
+    const normalized = `${category.name} ${category.slug}`.toLowerCase();
+
+    return !normalized.includes("multivitamin") && !normalized.includes("liver-axis") && !normalized.includes("liver axis");
+  });
+
+  if (visibleCategories.length === 0) {
     return null;
   }
 
@@ -42,8 +49,8 @@ export default function CategoryMegaMenu({
         </a>
       </div>
 
-      <div className="category-mega-grid">
-        {categories.map((category) => (
+      <div className="category-mega-grid" style={{ "--category-count": visibleCategories.length } as CSSProperties}>
+        {visibleCategories.map((category) => (
           <a
             key={category.slug}
             className="category-mega-card"

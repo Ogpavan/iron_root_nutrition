@@ -43,6 +43,7 @@ type WooProduct = {
   slug?: string;
   sku?: string;
   price?: string;
+  regular_price?: string;
   price_html?: string;
   permalink?: string;
   description?: string;
@@ -63,6 +64,7 @@ type WooProductVariation = {
   id: number;
   sku?: string;
   price?: string;
+  regular_price?: string;
   price_html?: string;
   stock_status?: string;
   image?: WooImage;
@@ -84,6 +86,7 @@ type ProductFetchOptions = {
 
 type PriceLike = {
   price?: string;
+  regular_price?: string;
   price_html?: string;
 };
 
@@ -112,6 +115,78 @@ const currencyFormatter = new Intl.NumberFormat("en-IN", {
   maximumFractionDigits: 0
 });
 
+function normalizeWooPriceAmount(amount: number) {
+  if (amount > 0 && amount < 10) {
+    return amount * 1000;
+  }
+
+  return amount;
+}
+type ProductPriceContext = {
+  name?: string;
+  slug?: string;
+  sku?: string;
+  attributes?: {
+    name?: string;
+    option?: string;
+  }[];
+};
+
+type ProductPriceOverride = {
+  aliases: string[];
+  sizeTokens?: string[];
+  rate: number;
+  mrp: number;
+};
+
+const productPriceOverrides: ProductPriceOverride[] = [
+  { aliases: ["pro fusion", "profusion"], rate: 5249, mrp: 6999 },
+  { aliases: ["myofuel", "myo fuel"], sizeTokens: ["2kg", "2 kg"], rate: 6374, mrp: 8499 },
+  { aliases: ["big build", "weight gainer"], sizeTokens: ["3kg", "3 kg"], rate: 2999, mrp: 3999 },
+  { aliases: ["titan meal"], sizeTokens: ["3kg", "3 kg"], rate: 3749, mrp: 4999 },
+  { aliases: ["alpha grid", "alphagrid"], rate: 1874, mrp: 2499 },
+  { aliases: ["pre shock", "preshock"], rate: 1724, mrp: 2299 },
+  { aliases: ["crealift", "creatine"], sizeTokens: ["122gm", "122 gm", "33 servings"], rate: 561, mrp: 749 },
+  { aliases: ["crealift", "creatine"], sizeTokens: ["307gm", "307 gm", "85 servings"], rate: 1124, mrp: 1499 },
+  { aliases: ["intracharge", "bcaa"], rate: 1499, mrp: 1999 },
+  { aliases: ["glutabuild", "gluta build", "glutamine"], rate: 1200, mrp: 1600 }
+];
+
+function normalizePricingText(value?: string) {
+  return String(value ?? "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "");
+}
+
+function includesPricingToken(value: string, tokens: string[]) {
+  return tokens.some((token) => value.includes(normalizePricingText(token)));
+}
+
+function getPriceOverride(context?: ProductPriceContext) {
+  if (!context) {
+    return undefined;
+  }
+
+  const attributeText = normalizePricingText(
+    context.attributes?.map((attribute) => `${attribute.name ?? ""} ${attribute.option ?? ""}`).join(" ")
+  );
+  const productText = normalizePricingText(`${context.name ?? ""} ${context.slug ?? ""} ${context.sku ?? ""}`);
+  const combinedText = `${productText}${attributeText}`;
+  const hasAttributes = Boolean(context.attributes?.length);
+
+  return productPriceOverrides.find((override) => {
+    if (!includesPricingToken(combinedText, override.aliases)) {
+      return false;
+    }
+
+    if (!override.sizeTokens?.length) {
+      return true;
+    }
+
+    return !hasAttributes || includesPricingToken(attributeText, override.sizeTokens);
+  });
+}
+
 function cleanHtml(value?: string) {
   if (!value) {
     return "";
@@ -126,12 +201,18 @@ function cleanHtml(value?: string) {
     .trim();
 }
 
-function formatPrice(product: PriceLike) {
+function formatPrice(product: PriceLike, context?: ProductPriceContext) {
+  const override = getPriceOverride(context);
+
+  if (override) {
+    return currencyFormatter.format(override.rate);
+  }
+
   if (product.price) {
     const amount = Number(product.price);
 
     if (Number.isFinite(amount)) {
-      return currencyFormatter.format(amount);
+      return currencyFormatter.format(normalizeWooPriceAmount(amount));
     }
 
     return product.price;
@@ -140,6 +221,29 @@ function formatPrice(product: PriceLike) {
   return cleanHtml(product.price_html) || "View product";
 }
 
+function formatMrp(product: PriceLike, context?: ProductPriceContext) {
+  const override = getPriceOverride(context);
+
+  if (override && override.mrp > override.rate) {
+    return currencyFormatter.format(override.mrp);
+  }
+
+  if (product.regular_price) {
+    const mrp = Number(product.regular_price);
+    const price = Number(product.price);
+
+    if (Number.isFinite(mrp)) {
+      const normalizedMrp = normalizeWooPriceAmount(mrp);
+      const normalizedPrice = Number.isFinite(price) ? normalizeWooPriceAmount(price) : 0;
+
+      if (normalizedMrp > normalizedPrice) {
+        return currencyFormatter.format(normalizedMrp);
+      }
+    }
+  }
+
+  return undefined;
+}
 function slugify(value: string) {
   return value
     .toLowerCase()
@@ -278,7 +382,18 @@ async function getWooProductVariations(
       mappedVariations.push({
         id: variation.id,
         sku: variation.sku,
-        price: formatPrice(variation),
+        price: formatPrice(variation, {
+          name: product.name,
+          slug: product.slug,
+          sku: variation.sku,
+          attributes: variation.attributes
+        }),
+        mrp: formatMrp(variation, {
+          name: product.name,
+          slug: product.slug,
+          sku: variation.sku,
+          attributes: variation.attributes
+        }),
         image: variation.image?.src,
         stockStatus: variation.stock_status,
         attributes: mapVariationAttributes(variation)
@@ -319,7 +434,16 @@ function mapProduct(product: WooProduct, index: number, variations: MappedProduc
     slug,
     name: product.name || fallback.name,
     tag: categoryNames[0] || "IronRoot",
-    price: formatPrice(product),
+    price: formatPrice(product, {
+      name: product.name,
+      slug,
+      sku: product.sku
+    }),
+    mrp: formatMrp(product, {
+      name: product.name,
+      slug,
+      sku: product.sku
+    }),
     image: product.images?.[0]?.src || fallback.image,
     hoverImage: product.images && product.images.length > 1 ? product.images[product.images.length - 1]?.src : undefined,
     galleryImages,

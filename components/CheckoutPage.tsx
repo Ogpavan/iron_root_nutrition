@@ -3,7 +3,6 @@
 import {
   Check,
   LockKeyhole,
-  ShieldCheck,
   ShoppingBag,
   Tag,
   X
@@ -847,55 +846,6 @@ export default function CheckoutPage({ categories }: CheckoutPageProps) {
                   </label>
                 </section>
 
-                <section className="checkout-panel">
-                  <div className="checkout-panel-title">
-                    <div>
-                      <h2>Shipping</h2>
-                    </div>
-                  </div>
-                  {shippingLoading ? (
-                    <p className="checkout-shipping-state">Loading shipping methods...</p>
-                  ) : shippingError ? (
-                    <p className="checkout-shipping-state is-error">{shippingError}</p>
-                  ) : shippingOptions.length > 0 ? (
-                    <div className="checkout-shipping-options">
-                      {shippingOptions.map((option) => (
-                        <label className="checkout-shipping-option" key={option.id}>
-                          <input
-                            type="radio"
-                            name="shippingMethod"
-                            value={option.id}
-                            checked={selectedShippingId === option.id}
-                            onChange={() => setSelectedShippingId(option.id)}
-                          />
-                          <span>
-                            <strong>{option.title}</strong>
-                            <em>{option.total > 0 ? currencyFormatter.format(option.total) : "Free"}</em>
-                          </span>
-                        </label>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="checkout-shipping-state">Enter your address to load shipping methods.</p>
-                  )}
-                </section>
-
-                <section className="checkout-panel">
-                  <div className="checkout-panel-title">
-                    <div>
-                      <h2>Payment</h2>
-                    </div>
-                  </div>
-                  <div className="checkout-options compact">
-                    <div className="checkout-option is-static" aria-hidden="true">
-                      <ShieldCheck size={18} aria-hidden="true" />
-                      <span>
-                        <strong>Razorpay secure payment</strong>
-                        <em>UPI, cards, netbanking and wallets</em>
-                      </span>
-                    </div>
-                  </div>
-                </section>
 
               </form>
             ) : (
@@ -1019,10 +969,6 @@ export default function CheckoutPage({ categories }: CheckoutPageProps) {
                 </div>
               </div>
 
-              <p className="checkout-summary-note">
-                <ShieldCheck size={15} aria-hidden="true" />
-                Razorpay secured payment.
-              </p>
 
               <div className="checkout-actions">
                 <button
@@ -1039,9 +985,7 @@ export default function CheckoutPage({ categories }: CheckoutPageProps) {
                     {paymentError}
                   </p>
                 ) : null}
-                <p className="checkout-payment-trust">
-                  Powered by Razorpay - UPI, cards and wallets supported.
-                </p>
+
                 <a href="/all-products">Return to shopping</a>
               </div>
             </aside>
