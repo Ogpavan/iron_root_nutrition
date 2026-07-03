@@ -667,9 +667,6 @@ export default function CheckoutPage({ categories }: CheckoutPageProps) {
         <div className="checkout-shell">
           <div className="checkout-main">
             <section className="checkout-brand-block" aria-labelledby="checkout-title">
-              <a className="checkout-brand-link" href="/">
-                IronRoot Nutrition
-              </a>
               <h1 id="checkout-title">Checkout</h1>
             </section>
 
@@ -702,11 +699,6 @@ export default function CheckoutPage({ categories }: CheckoutPageProps) {
             ) : itemCount > 0 ? (
               <form id="checkout-form" className="checkout-form" onSubmit={handleSubmit}>
                 <section className="checkout-panel">
-                  <div className="checkout-panel-title">
-                    <div>
-                      <h2>Contact</h2>
-                    </div>
-                  </div>
                   <div className="checkout-grid">
                     <div>
                       <RequiredLabel htmlFor="email">Email or phone</RequiredLabel>
