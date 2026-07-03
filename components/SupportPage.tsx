@@ -2,7 +2,7 @@
 
 import { ChevronDown, ChevronRight, Clock3, Mail, MessageCircle, Phone, Send, Star } from "lucide-react";
 import Image from "next/image";
-import { useState } from "react";
+import { FormEvent, useState } from "react";
 import SiteHeader from "@/components/SiteHeader";
 import type { HomeProduct } from "@/lib/home-data";
 import type { WooCatalogCategory } from "@/lib/woocommerce";
@@ -58,6 +58,44 @@ const faqs = [
 
 export default function SupportPage({ categories, products }: SupportPageProps) {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [contactStatus, setContactStatus] = useState<"idle" | "sending" | "success" | "error">("idle");
+  const [contactMessage, setContactMessage] = useState("");
+
+  const handleContactSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+
+    setContactStatus("sending");
+    setContactMessage("");
+
+    try {
+      const response = await fetch("/api/contact", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          name: String(formData.get("name") ?? ""),
+          email: String(formData.get("email") ?? ""),
+          phone: String(formData.get("phone") ?? ""),
+          message: String(formData.get("message") ?? "")
+        })
+      });
+      const data = (await response.json()) as { message?: string; error?: string };
+
+      if (!response.ok) {
+        throw new Error(data.error || "Could not send your message.");
+      }
+
+      form.reset();
+      setContactStatus("success");
+      setContactMessage(data.message || "Your message has been sent.");
+    } catch (error) {
+      setContactStatus("error");
+      setContactMessage(error instanceof Error ? error.message : "Could not send your message.");
+    }
+  };
 
   return (
     <>
@@ -109,14 +147,10 @@ export default function SupportPage({ categories, products }: SupportPageProps) 
 
         <section className="support-form-section" id="contact-form">
           <h2>Contact form</h2>
-          <form className="support-form" onSubmit={(event) => event.preventDefault()}>
+          <form className="support-form" onSubmit={handleContactSubmit}>
             <label>
               Name *
               <input type="text" name="name" required />
-            </label>
-            <label>
-              Company
-              <input type="text" name="company" />
             </label>
             <label>
               Email *
@@ -130,10 +164,15 @@ export default function SupportPage({ categories, products }: SupportPageProps) 
               Message *
               <textarea name="message" rows={8} required />
             </label>
-            <button type="submit">
+            <button type="submit" disabled={contactStatus === "sending"}>
               <Send aria-hidden="true" size={15} />
-              Send
+              {contactStatus === "sending" ? "Sending" : "Send"}
             </button>
+            {contactMessage ? (
+              <p className={`support-form-status is-${contactStatus}`} role={contactStatus === "error" ? "alert" : "status"}>
+                {contactMessage}
+              </p>
+            ) : null}
           </form>
         </section>
 

@@ -1,3 +1,5 @@
+"use client";
+
 import {
   ChevronRight,
   FlaskConical,
@@ -9,6 +11,7 @@ import {
   Zap
 } from "lucide-react";
 import Image from "next/image";
+import { FormEvent, useState } from "react";
 
 const footerLogo =
   "https://admin.ironrootnutrition.com/wp-content/uploads/2026/06/black-img.png";
@@ -59,6 +62,19 @@ const paymentMethods = [
 ] as const;
 
 export default function SiteFooter() {
+  const [footerEmail, setFooterEmail] = useState("");
+  const [subscribed, setSubscribed] = useState(false);
+
+  const handleSubscribe = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!footerEmail.trim()) {
+      return;
+    }
+
+    setSubscribed(true);
+  };
+
   return (
     <footer className="footer">
       <div className="footer-shell">
@@ -127,11 +143,21 @@ export default function SiteFooter() {
               Join the <span>IronRoot</span> community
             </h3>
             <p>Get exclusive offers, early access to new launches and performance tips.</p>
-            <form className="footer-newsletter">
+            <form className="footer-newsletter" onSubmit={handleSubscribe}>
               <label htmlFor="footer-email">Email address</label>
               <div>
-                <input id="footer-email" type="email" placeholder="Enter your email address" />
-                <button type="submit">Subscribe</button>
+                <input
+                  id="footer-email"
+                  type="email"
+                  placeholder="Enter your email address"
+                  value={footerEmail}
+                  onChange={(event) => {
+                    setFooterEmail(event.target.value);
+                    setSubscribed(false);
+                  }}
+                  required
+                />
+                <button type="submit">{subscribed ? "Subscribed" : "Subscribe"}</button>
               </div>
             </form>
             <p className="footer-note">
@@ -170,7 +196,6 @@ export default function SiteFooter() {
           <a href="/privacy-policy">Privacy Policy</a>
           <a href="/terms-of-service">Terms of Service</a>
           <a href="/support#faq">Refund Policy</a>
-          <a href="/support#faq">Track Your Order</a>
           <a href="/sitemap.xml">Sitemap</a>
         </nav>
         <div className="footer-payments" aria-label="Payment methods">

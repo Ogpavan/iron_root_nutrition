@@ -17,7 +17,7 @@ export type CheckoutOrderItem = {
 export type CheckoutCustomer = {
   firstName: string;
   lastName: string;
-  emailOrPhone: string;
+  email: string;
   phone: string;
   country: string;
   address1: string;
@@ -67,11 +67,11 @@ function normalizeCountry(value: string) {
 }
 
 function getEmail(customer: CheckoutCustomer) {
-  return customer.emailOrPhone.includes("@") ? customer.emailOrPhone.trim() : "";
+  return customer.email.trim().toLowerCase();
 }
 
 function getPhone(customer: CheckoutCustomer) {
-  return customer.phone.trim() || (!customer.emailOrPhone.includes("@") ? customer.emailOrPhone.trim() : "");
+  return customer.phone.trim();
 }
 
 function readPrice(value: string) {
@@ -144,6 +144,12 @@ export async function createWooCommerceCheckoutOrder({
     };
   });
   const country = normalizeCountry(customer.country || "IN");
+  const email = getEmail(customer);
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new Error("A valid email address is required to place an order.");
+  }
+
   const billing = {
     first_name: customer.firstName.trim(),
     last_name: customer.lastName.trim(),
@@ -153,7 +159,7 @@ export async function createWooCommerceCheckoutOrder({
     state: customer.state.trim(),
     postcode: customer.pincode.trim(),
     country,
-    email: getEmail(customer),
+    email,
     phone: getPhone(customer)
   };
   const isRazorpay = paymentMethod === "razorpay";

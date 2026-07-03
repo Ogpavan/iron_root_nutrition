@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import SiteHeader from "@/components/SiteHeader";
 import {
   accountStorageKey,
+  getAuthUserContact,
   normalizeStoredUser,
   type AuthUser
 } from "@/lib/account-auth";
@@ -49,15 +50,6 @@ function formatOrderDate(value?: string) {
     month: "long",
     year: "numeric"
   });
-}
-
-function getUserContact(user: AuthUser) {
-  const identifierIsEmail = user.identifier.includes("@");
-
-  return {
-    email: user.email ?? (identifierIsEmail ? user.identifier : ""),
-    phone: user.phone ?? (identifierIsEmail ? "" : user.identifier)
-  };
 }
 
 function getOrderBucket(status: string): OrderStatusBucket {
@@ -105,7 +97,14 @@ export default function AccountOrdersPage({ categories }: AccountOrdersPageProps
     }
 
     try {
-      setUser(normalizeStoredUser(JSON.parse(stored)));
+      const storedUser = normalizeStoredUser(JSON.parse(stored));
+
+      if (storedUser) {
+        setUser(storedUser);
+      } else {
+        window.localStorage.removeItem(accountStorageKey);
+        setOrdersLoading(false);
+      }
     } catch {
       window.localStorage.removeItem(accountStorageKey);
       setOrdersLoading(false);
@@ -131,7 +130,7 @@ export default function AccountOrdersPage({ categories }: AccountOrdersPageProps
           headers: {
             "Content-Type": "application/json"
           },
-          body: JSON.stringify(getUserContact(user)),
+          body: JSON.stringify(getAuthUserContact(user)),
           signal: controller.signal
         });
         const data = (await response.json()) as { orders?: AccountOrder[]; error?: string };
@@ -197,7 +196,7 @@ export default function AccountOrdersPage({ categories }: AccountOrdersPageProps
               <div className="profile-orders-empty">
                 <Search size={34} aria-hidden="true" />
                 <h2>No orders found</h2>
-                <p>No previous orders were found for this account email or phone number.</p>
+                <p>No previous orders were found for this account email.</p>
                 <a href="/all-products">Start shopping</a>
               </div>
             ) : (

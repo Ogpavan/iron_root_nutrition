@@ -21,11 +21,13 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import SiteHeader from "@/components/SiteHeader";
 import {
   accountStorageKey,
   getAccountInitials,
+  isValidAuthEmail,
+  normalizeAuthEmail,
   normalizeStoredUser,
   type AuthUser
 } from "@/lib/account-auth";
@@ -89,10 +91,6 @@ function createOtp() {
   return String(Math.floor(100000 + Math.random() * 900000));
 }
 
-function normalizeIdentifier(value: string) {
-  return value.trim();
-}
-
 function hasUsablePhone(value: string) {
   return value.replace(/\D/g, "").length >= 7;
 }
@@ -126,15 +124,10 @@ export default function AccountOtpPage({ categories }: AccountOtpPageProps) {
   const [profilePhone, setProfilePhone] = useState("");
   const [profileMessage, setProfileMessage] = useState("");
 
-  const identifierType = useMemo(() => {
-    return identifier.includes("@") ? "email" : "mobile";
-  }, [identifier]);
-
   const resetProfileDraft = (nextUser: AuthUser) => {
-    const userIdentifierIsEmail = nextUser.identifier.includes("@");
     setProfileName(nextUser.name);
-    setProfileEmail(nextUser.email ?? (userIdentifierIsEmail ? nextUser.identifier : ""));
-    setProfilePhone(nextUser.phone ?? (userIdentifierIsEmail ? "" : nextUser.identifier));
+    setProfileEmail(nextUser.email ?? nextUser.identifier);
+    setProfilePhone(nextUser.phone ?? "");
   };
 
   const closeProfileEditor = () => {
@@ -155,7 +148,13 @@ export default function AccountOtpPage({ categories }: AccountOtpPageProps) {
     }
 
     try {
-      setUser(normalizeStoredUser(JSON.parse(stored)));
+      const storedUser = normalizeStoredUser(JSON.parse(stored));
+
+      if (storedUser) {
+        setUser(storedUser);
+      } else {
+        window.localStorage.removeItem(accountStorageKey);
+      }
     } catch {
       window.localStorage.removeItem(accountStorageKey);
     } finally {
@@ -201,15 +200,15 @@ export default function AccountOtpPage({ categories }: AccountOtpPageProps) {
   const handleRequestOtp = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const normalizedName = name.trim();
-    const normalized = normalizeIdentifier(identifier);
+    const normalized = normalizeAuthEmail(identifier);
 
     if (normalizedName.length < 2) {
       setMessage("Enter your name to continue.");
       return;
     }
 
-    if (normalized.length < 5) {
-      setMessage("Enter a valid mobile number or email address.");
+    if (!isValidAuthEmail(normalized)) {
+      setMessage("Enter a valid email address.");
       return;
     }
 
@@ -231,7 +230,8 @@ export default function AccountOtpPage({ categories }: AccountOtpPageProps) {
 
     const nextUser = {
       name: name.trim(),
-      identifier,
+      identifier: normalizeAuthEmail(identifier),
+      email: normalizeAuthEmail(identifier),
       signedInAt: new Date().toISOString()
     };
 
@@ -248,7 +248,7 @@ export default function AccountOtpPage({ categories }: AccountOtpPageProps) {
     }
 
     const nextName = profileName.trim();
-    const nextEmail = profileEmail.trim();
+    const nextEmail = normalizeAuthEmail(profileEmail);
     const nextPhone = profilePhone.trim();
 
     if (nextName.length < 2) {
@@ -256,7 +256,7 @@ export default function AccountOtpPage({ categories }: AccountOtpPageProps) {
       return;
     }
 
-    if (nextEmail && !nextEmail.includes("@")) {
+    if (!isValidAuthEmail(nextEmail)) {
       setProfileMessage("Enter a valid email address.");
       return;
     }
@@ -266,12 +266,11 @@ export default function AccountOtpPage({ categories }: AccountOtpPageProps) {
       return;
     }
 
-    const identifierIsEmail = user.identifier.includes("@");
     const nextUser: AuthUser = {
       ...user,
       name: nextName,
-      identifier: identifierIsEmail ? nextEmail || user.identifier : nextPhone || user.identifier,
-      email: nextEmail || undefined,
+      identifier: nextEmail,
+      email: nextEmail,
       phone: nextPhone || undefined
     };
 
@@ -293,9 +292,8 @@ export default function AccountOtpPage({ categories }: AccountOtpPageProps) {
   };
 
   const signedInDate = user ? getValidDate(user.signedInAt) : new Date();
-  const isEmailIdentifier = Boolean(user?.identifier.includes("@"));
-  const emailAddress = user ? user.email ?? (isEmailIdentifier ? user.identifier : "Not added") : "";
-  const phoneNumber = user ? user.phone ?? (isEmailIdentifier ? "Not added" : user.identifier) : "";
+  const emailAddress = user ? user.email ?? user.identifier : "";
+  const phoneNumber = user ? user.phone ?? "Not added" : "";
   const detailRows = user
     ? [
         { label: "Full Name", value: user.name, icon: UserRound },
@@ -589,19 +587,16 @@ export default function AccountOtpPage({ categories }: AccountOtpPageProps) {
                     autoComplete="name"
                     required
                   />
-                  <label htmlFor="account-identifier">Mobile number or email</label>
+                  <label htmlFor="account-identifier">Email address</label>
                   <div className="account-input-wrap">
-                    {identifierType === "email" ? (
-                      <Mail size={18} aria-hidden="true" />
-                    ) : (
-                      <Smartphone size={18} aria-hidden="true" />
-                    )}
+                    <Mail size={18} aria-hidden="true" />
                     <input
                       id="account-identifier"
+                      type="email"
                       value={identifier}
                       onChange={(event) => setIdentifier(event.target.value)}
-                      placeholder="Enter mobile or email"
-                      autoComplete="username"
+                      placeholder="Enter email address"
+                      autoComplete="email"
                       required
                     />
                   </div>
@@ -631,7 +626,7 @@ export default function AccountOtpPage({ categories }: AccountOtpPageProps) {
                       setMessage("");
                     }}
                   >
-                    Change mobile or email
+                    Change email
                   </button>
                 </form>
               )}

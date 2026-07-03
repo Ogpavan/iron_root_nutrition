@@ -1,11 +1,17 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { Mail, ShieldCheck, Smartphone, X } from "lucide-react";
+import { Mail, ShieldCheck, X } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { FormEvent, useEffect, useMemo, useState } from "react";
-import { accountStorageKey, normalizeStoredUser, type AuthUser } from "@/lib/account-auth";
+import { FormEvent, useEffect, useState } from "react";
+import {
+  accountStorageKey,
+  isValidAuthEmail,
+  normalizeAuthEmail,
+  normalizeStoredUser,
+  type AuthUser
+} from "@/lib/account-auth";
 
 type AccountOtpModalProps = {
   open: boolean;
@@ -21,10 +27,6 @@ function createOtp() {
   return String(Math.floor(100000 + Math.random() * 900000));
 }
 
-function normalizeIdentifier(value: string) {
-  return value.trim();
-}
-
 export default function AccountOtpModal({
   open,
   onClose,
@@ -38,10 +40,6 @@ export default function AccountOtpModal({
   const [generatedOtp, setGeneratedOtp] = useState("");
   const [step, setStep] = useState<"identity" | "verify">("identity");
   const [message, setMessage] = useState("");
-
-  const identifierType = useMemo(() => {
-    return identifier.includes("@") ? "email" : "mobile";
-  }, [identifier]);
 
   const openProfile = () => {
     onClose();
@@ -59,7 +57,13 @@ export default function AccountOtpModal({
 
     try {
       const storedUser = normalizeStoredUser(JSON.parse(stored));
-      onUserChange?.(storedUser);
+
+      if (storedUser) {
+        onUserChange?.(storedUser);
+      } else {
+        window.localStorage.removeItem(accountStorageKey);
+        onUserChange?.(null);
+      }
     } catch {
       window.localStorage.removeItem(accountStorageKey);
     }
@@ -82,6 +86,9 @@ export default function AccountOtpModal({
       if (storedUser) {
         onUserChange?.(storedUser);
         openProfile();
+      } else {
+        window.localStorage.removeItem(accountStorageKey);
+        onUserChange?.(null);
       }
     } catch {
       window.localStorage.removeItem(accountStorageKey);
@@ -113,15 +120,15 @@ export default function AccountOtpModal({
   const handleRequestOtp = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const normalizedName = name.trim();
-    const normalized = normalizeIdentifier(identifier);
+    const normalized = normalizeAuthEmail(identifier);
 
     if (normalizedName.length < 2) {
       setMessage("Enter your name to continue.");
       return;
     }
 
-    if (normalized.length < 5) {
-      setMessage("Enter a valid mobile number or email address.");
+    if (!isValidAuthEmail(normalized)) {
+      setMessage("Enter a valid email address.");
       return;
     }
 
@@ -143,7 +150,8 @@ export default function AccountOtpModal({
 
     const nextUser = {
       name: name.trim(),
-      identifier,
+      identifier: normalizeAuthEmail(identifier),
+      email: normalizeAuthEmail(identifier),
       signedInAt: new Date().toISOString()
     };
 
@@ -200,19 +208,16 @@ export default function AccountOtpModal({
                     autoComplete="name"
                     required
                   />
-                  <label htmlFor="modal-account-identifier">Mobile number or email</label>
+                  <label htmlFor="modal-account-identifier">Email address</label>
                   <div className="account-input-wrap">
-                    {identifierType === "email" ? (
-                      <Mail size={18} aria-hidden="true" />
-                    ) : (
-                      <Smartphone size={18} aria-hidden="true" />
-                    )}
+                    <Mail size={18} aria-hidden="true" />
                     <input
                       id="modal-account-identifier"
+                      type="email"
                       value={identifier}
                       onChange={(event) => setIdentifier(event.target.value)}
-                      placeholder="Enter mobile or email"
-                      autoComplete="username"
+                      placeholder="Enter email address"
+                      autoComplete="email"
                       required
                     />
                   </div>
@@ -242,7 +247,7 @@ export default function AccountOtpModal({
                       setMessage("");
                     }}
                   >
-                    Change mobile or email
+                    Change email
                   </button>
                 </form>
               )}

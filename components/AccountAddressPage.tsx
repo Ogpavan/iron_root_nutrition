@@ -5,6 +5,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import SiteHeader from "@/components/SiteHeader";
 import {
   accountStorageKey,
+  getAuthUserContact,
   normalizeStoredUser,
   type AuthUser
 } from "@/lib/account-auth";
@@ -44,15 +45,6 @@ const emptyAddress: AddressForm = {
   phone: ""
 };
 
-function getUserContact(user: AuthUser) {
-  const identifierIsEmail = user.identifier.includes("@");
-
-  return {
-    email: user.email ?? (identifierIsEmail ? user.identifier : ""),
-    phone: user.phone ?? (identifierIsEmail ? "" : user.identifier)
-  };
-}
-
 function splitName(value: string) {
   const parts = value.trim().split(/\s+/).filter(Boolean);
 
@@ -86,13 +78,28 @@ export default function AccountAddressPage({ categories }: AccountAddressPagePro
   const [formOpen, setFormOpen] = useState(false);
   const [editingKind, setEditingKind] = useState<AddressKind>("billing");
 
-  const contact = useMemo(() => (user ? getUserContact(user) : { email: "", phone: "" }), [user]);
+  const contact = useMemo(() => (user ? getAuthUserContact(user) : { email: "", phone: "" }), [user]);
 
   useEffect(() => {
     const stored = window.localStorage.getItem(accountStorageKey);
-    const parsed = stored ? normalizeStoredUser(JSON.parse(stored)) : null;
 
-    setUser(parsed);
+    if (!stored) {
+      setAuthReady(true);
+      return;
+    }
+
+    try {
+      const parsed = normalizeStoredUser(JSON.parse(stored));
+
+      if (parsed) {
+        setUser(parsed);
+      } else {
+        window.localStorage.removeItem(accountStorageKey);
+      }
+    } catch {
+      window.localStorage.removeItem(accountStorageKey);
+    }
+
     setAuthReady(true);
   }, []);
 

@@ -13,7 +13,12 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import AccountOtpModal from "@/components/AccountOtpModal";
 import { useCart } from "@/components/cart/CartProvider";
 import SiteHeader from "@/components/SiteHeader";
-import { accountStorageKey, normalizeStoredUser, type AuthUser } from "@/lib/account-auth";
+import {
+  accountStorageKey,
+  getAuthUserContact,
+  normalizeStoredUser,
+  type AuthUser
+} from "@/lib/account-auth";
 import type { WooCatalogCategory } from "@/lib/woocommerce";
 
 type CheckoutPageProps = {
@@ -49,7 +54,7 @@ type RazorpayVerifyResponse = {
 type CheckoutCustomer = {
   firstName: string;
   lastName: string;
-  emailOrPhone: string;
+  email: string;
   phone: string;
   country: string;
   address1: string;
@@ -190,7 +195,7 @@ function buildCheckoutPayload(
     customer: {
       firstName: getFormString(formData, "firstName"),
       lastName: getFormString(formData, "lastName"),
-      emailOrPhone: getFormString(formData, "email"),
+      email: getFormString(formData, "email"),
       phone: getFormString(formData, "mobile"),
       country: getFormString(formData, "country") || "India",
       address1: getFormString(formData, "address1"),
@@ -207,7 +212,7 @@ function buildCheckoutPayload(
 const emptyCheckoutCustomer: CheckoutCustomer = {
   firstName: "",
   lastName: "",
-  emailOrPhone: "",
+  email: "",
   phone: "",
   country: "India",
   address1: "",
@@ -216,15 +221,6 @@ const emptyCheckoutCustomer: CheckoutCustomer = {
   state: "",
   pincode: ""
 };
-
-function getUserContact(user: AuthUser) {
-  const identifierIsEmail = user.identifier.includes("@");
-
-  return {
-    email: user.email ?? (identifierIsEmail ? user.identifier : ""),
-    phone: user.phone ?? (identifierIsEmail ? "" : user.identifier)
-  };
-}
 
 function splitName(value: string) {
   const parts = value.trim().split(/\s+/).filter(Boolean);
@@ -236,14 +232,14 @@ function splitName(value: string) {
 }
 
 function getCheckoutCustomerFromUser(user: AuthUser): CheckoutCustomer {
-  const { email, phone } = getUserContact(user);
+  const { email, phone } = getAuthUserContact(user);
   const { firstName, lastName } = splitName(user.name);
 
   return {
     ...emptyCheckoutCustomer,
     firstName,
     lastName,
-    emailOrPhone: email || phone,
+    email,
     phone
   };
 }
@@ -260,7 +256,7 @@ function mapAddressToCheckoutCustomer(
     ...fallback,
     firstName: address.first_name?.trim() || fallback.firstName,
     lastName: address.last_name?.trim() || fallback.lastName,
-    emailOrPhone: address.email?.trim() || fallback.emailOrPhone,
+    email: address.email?.trim() || fallback.email,
     phone: address.phone?.trim() || fallback.phone,
     country: "India",
     address1: address.address_1?.trim() || "",
@@ -346,9 +342,12 @@ export default function CheckoutPage({ categories }: CheckoutPageProps) {
 
     try {
       const nextUser = normalizeStoredUser(JSON.parse(stored));
-      setAuthUser(nextUser);
+
       if (nextUser) {
+        setAuthUser(nextUser);
         setCustomer(getCheckoutCustomerFromUser(nextUser));
+      } else {
+        window.localStorage.removeItem(accountStorageKey);
       }
       setAuthOpen(!nextUser);
     } catch {
@@ -373,7 +372,7 @@ export default function CheckoutPage({ categories }: CheckoutPageProps) {
       )
     }) as CheckoutCustomer);
 
-    const { email, phone } = getUserContact(authUser);
+    const { email, phone } = getAuthUserContact(authUser);
 
     if (!email) {
       return;
@@ -514,7 +513,7 @@ export default function CheckoutPage({ categories }: CheckoutPageProps) {
       appliedDiscount?.code,
       selectedShipping?.id
     );
-    const { firstName, lastName, emailOrPhone, phone } = checkoutPayload.customer;
+    const { firstName, lastName, email, phone } = checkoutPayload.customer;
     const name = `${firstName} ${lastName}`.trim();
 
     setPaymentError("");
@@ -562,8 +561,8 @@ export default function CheckoutPage({ categories }: CheckoutPageProps) {
           order_id: razorpayOrderId,
           prefill: {
             name,
-            email: emailOrPhone.includes("@") ? emailOrPhone : undefined,
-            contact: phone || (!emailOrPhone.includes("@") ? emailOrPhone : undefined)
+            email,
+            contact: phone
           },
           theme: {
             color: "#111111"
@@ -701,13 +700,14 @@ export default function CheckoutPage({ categories }: CheckoutPageProps) {
                 <section className="checkout-panel">
                   <div className="checkout-grid">
                     <div>
-                      <RequiredLabel htmlFor="email">Email or phone</RequiredLabel>
+                      <RequiredLabel htmlFor="email">Email</RequiredLabel>
                       <input
                         id="email"
                         name="email"
-                        type="text"
-                        value={customer.emailOrPhone}
-                        onChange={(event) => updateCustomerField("emailOrPhone", event.target.value)}
+                        type="email"
+                        value={customer.email}
+                        onChange={(event) => updateCustomerField("email", event.target.value)}
+                        autoComplete="email"
                         required
                       />
                     </div>

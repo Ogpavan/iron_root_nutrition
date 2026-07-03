@@ -328,7 +328,13 @@ export default function SiteHeader({
     }
 
     try {
-      setAuthUser(normalizeStoredUser(JSON.parse(stored)));
+      const storedUser = normalizeStoredUser(JSON.parse(stored));
+
+      if (storedUser) {
+        setAuthUser(storedUser);
+      } else {
+        window.localStorage.removeItem(accountStorageKey);
+      }
     } catch {
       window.localStorage.removeItem(accountStorageKey);
     }

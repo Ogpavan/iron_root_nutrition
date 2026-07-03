@@ -398,7 +398,7 @@ function FitnessBlock() {
           <a className="pill" href="#products">
             Shop supplements
           </a>
-          <a className="pill outline" href="/support">
+          <a className="pill outline" href="/founder-inspiring-story">
             Read more
           </a>
         </motion.div>
