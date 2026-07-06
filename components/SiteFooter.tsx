@@ -4,7 +4,6 @@ import {
   ChevronRight,
   FlaskConical,
   Mail,
-  MessageCircle,
   Package,
   Phone,
   ShieldCheck,
@@ -87,14 +86,6 @@ export default function SiteFooter() {
             </p>
 
             <div className="footer-contact-list">
-              <a className="footer-contact-row" href="/support#contact-form">
-                <span>
-                  <MessageCircle size={20} aria-hidden="true" />
-                </span>
-                <strong>WhatsApp Support</strong>
-                <em>Chat with our experts</em>
-                <ChevronRight size={17} aria-hidden="true" />
-              </a>
               <a className="footer-contact-row" href="mailto:support@ironrootnutrition.com">
                 <span>
                   <Mail size={20} aria-hidden="true" />

@@ -2361,6 +2361,14 @@ h6 {
   text-transform: none;
 }
 
+.collection-fallback-note {
+  margin: 10px 0 0;
+  color: #6b6b6b;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
 .collection-search-chip {
   display: inline-flex;
   max-width: min(100%, 420px);
@@ -2455,6 +2463,23 @@ h6 {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 38px 30px;
+}
+
+.collection-other-products {
+  margin-top: 46px;
+}
+
+.collection-section-header {
+  margin-bottom: 22px;
+}
+
+.collection-section-header h2 {
+  margin: 0;
+  color: #050505;
+  font-size: clamp(18px, 1.7vw, 24px);
+  font-weight: 700;
+  line-height: 1.1;
+  text-transform: uppercase;
 }
 
 .collection-card {
@@ -2695,11 +2720,13 @@ h6 {
 }
 .collection-empty {
   display: grid;
-  justify-items: start;
-  gap: 12px;
-  min-height: 240px;
-  padding-top: 56px;
+  min-height: 260px;
+  align-content: center;
+  justify-items: center;
+  gap: 14px;
+  padding: 56px 16px;
   color: #050505;
+  text-align: center;
 }
 
 .collection-empty p {

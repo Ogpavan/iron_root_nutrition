@@ -24,6 +24,7 @@ import {
   type AuthUser
 } from "@/lib/account-auth";
 import { navItems, products as fallbackSearchProducts, type HomeProduct } from "@/lib/home-data";
+import { matchesProductSearch, sortProductsBySearchRelevance } from "@/lib/product-search";
 import type { WooCatalogCategory } from "@/lib/woocommerce";
 
 const menuLogoImage =
@@ -40,10 +41,6 @@ type SiteHeaderProps = {
 type SearchResponse = {
   products?: HomeProduct[];
 };
-
-function normalizeSearch(value: string) {
-  return value.toLowerCase().replace(/\s+/g, " ").trim();
-}
 
 function getSearchHref(product: HomeProduct) {
   if (product.href) {
@@ -78,30 +75,6 @@ function dedupeSearchProducts(products: HomeProduct[]) {
   return Array.from(unique.values());
 }
 
-function matchesSearch(product: HomeProduct, query: string) {
-  const terms = normalizeSearch(query).split(" ").filter(Boolean);
-
-  if (terms.length === 0) {
-    return true;
-  }
-
-  const haystack = normalizeSearch(
-    [
-      product.name,
-      product.tag,
-      product.price,
-      product.sku,
-      product.slug,
-      product.shortDescription,
-      product.description
-    ]
-      .filter(Boolean)
-      .join(" ")
-  );
-
-  return terms.every((term) => haystack.includes(term));
-}
-
 export default function SiteHeader({
   variant = "overlay",
   categories,
@@ -123,9 +96,7 @@ export default function SiteHeader({
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [searchCatalog, setSearchCatalog] = useState<HomeProduct[]>(initialSearchCatalog);
   const [searchLoading, setSearchLoading] = useState(false);
-  const [searchCatalogLoaded, setSearchCatalogLoaded] = useState(
-    () => (searchProducts?.length ?? 0) >= 12
-  );
+  const [loadedSearchQuery, setLoadedSearchQuery] = useState("");
   const [searchPending, startSearchTransition] = useTransition();
   const closeTimer = useRef<number | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
@@ -133,15 +104,17 @@ export default function SiteHeader({
   const navigationKey = navItems.map((item) => item.label).join("|");
   const logoSrc = isSolid || scrolled ? menuLogoDarkImage : menuLogoImage;
   const accountInitials = getAccountInitials(authUser);
-  const activeSearchQuery = debouncedSearchQuery.trim();
+  const activeSearchQuery = searchQuery.trim();
   const matchedSearchProducts = useMemo(() => {
     const source = activeSearchQuery
-      ? searchCatalog.filter((product) => matchesSearch(product, activeSearchQuery))
+      ? searchCatalog.filter((product) => matchesProductSearch(product, activeSearchQuery))
       : searchCatalog;
 
-    return source;
+    return activeSearchQuery ? sortProductsBySearchRelevance(source, activeSearchQuery) : source;
   }, [activeSearchQuery, searchCatalog]);
-  const visibleSearchProducts = matchedSearchProducts.slice(0, 6);
+  const showingSearchFallback = activeSearchQuery.length > 0 && matchedSearchProducts.length === 0;
+  const searchPanelProducts = showingSearchFallback ? searchCatalog : matchedSearchProducts;
+  const visibleSearchProducts = searchPanelProducts.slice(0, 6);
   const showSearchPanel = searchOpen && activeSearchQuery.length > 0;
 
   const openMenu = (menu: "categories" | "concerns") => {
@@ -219,19 +192,26 @@ export default function SiteHeader({
 
   useEffect(() => {
     setSearchCatalog(initialSearchCatalog);
-    setSearchCatalogLoaded((searchProducts?.length ?? 0) >= 12);
-  }, [initialSearchCatalog, searchProducts]);
+    setLoadedSearchQuery("");
+  }, [initialSearchCatalog]);
 
   useEffect(() => {
     if (!searchOpen) {
       return;
     }
 
-    const frame = window.requestAnimationFrame(() => {
+    const focusSearchField = () => {
       searchInputRef.current?.focus();
-    });
+    };
+    const frame = window.requestAnimationFrame(focusSearchField);
+    const mountTimer = window.setTimeout(focusSearchField, 80);
+    const animationTimer = window.setTimeout(focusSearchField, 340);
 
-    return () => window.cancelAnimationFrame(frame);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(mountTimer);
+      window.clearTimeout(animationTimer);
+    };
   }, [searchOpen]);
 
   useEffect(() => {
@@ -270,7 +250,9 @@ export default function SiteHeader({
   }, [searchOpen, searchQuery]);
 
   useEffect(() => {
-    if (!searchOpen || searchCatalogLoaded || activeSearchQuery.length === 0) {
+    const query = debouncedSearchQuery.trim();
+
+    if (!searchOpen || query.length === 0 || query === loadedSearchQuery) {
       return;
     }
 
@@ -280,7 +262,7 @@ export default function SiteHeader({
 
     async function loadSearchCatalog() {
       try {
-        const response = await fetch("/api/search?limit=48", {
+        const response = await fetch(`/api/search?q=${encodeURIComponent(query)}&limit=48`, {
           cache: "no-store",
           signal: controller.signal
         });
@@ -295,10 +277,10 @@ export default function SiteHeader({
           setSearchCatalog((current) => dedupeSearchProducts([...data.products!, ...current]));
         }
 
-        setSearchCatalogLoaded(true);
+        setLoadedSearchQuery(query);
       } catch (error) {
         if ((error as Error).name !== "AbortError") {
-          setSearchCatalogLoaded(false);
+          setLoadedSearchQuery("");
         }
       } finally {
         if (!controller.signal.aborted) {
@@ -310,7 +292,7 @@ export default function SiteHeader({
     void loadSearchCatalog();
 
     return () => controller.abort();
-  }, [activeSearchQuery, searchCatalogLoaded, searchOpen]);
+  }, [debouncedSearchQuery, loadedSearchQuery, searchOpen]);
 
   useEffect(() => {
     return () => {
@@ -354,6 +336,7 @@ export default function SiteHeader({
               animate={{ clipPath: "inset(0 0% 0 0)", opacity: 1 }}
               exit={{ clipPath: "inset(0 100% 0 0)", opacity: 1 }}
               transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+              onAnimationComplete={() => searchInputRef.current?.focus()}
               onSubmit={handleSearchSubmit}
             >
               <button
@@ -371,6 +354,7 @@ export default function SiteHeader({
                 value={searchQuery}
                 placeholder="What are you looking for?"
                 autoComplete="off"
+                autoFocus
                 spellCheck={false}
                 onChange={(event) => setSearchQuery(event.target.value)}
               />
@@ -528,7 +512,9 @@ export default function SiteHeader({
               <div className="header-search-panel-inner">
                 <div className="header-search-summary">
                   <p>
-                    {activeSearchQuery
+                    {showingSearchFallback && visibleSearchProducts.length > 0
+                      ? `No results for "${activeSearchQuery}". Showing other products`
+                      : activeSearchQuery
                       ? `${matchedSearchProducts.length} results for "${activeSearchQuery}"`
                       : "Popular search results"}
                   </p>

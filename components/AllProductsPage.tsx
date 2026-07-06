@@ -17,6 +17,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useCart } from "@/components/cart/CartProvider";
 import SiteHeader from "@/components/SiteHeader";
 import type { HomeProduct } from "@/lib/home-data";
+import { matchesProductSearch, sortProductsBySearchRelevance } from "@/lib/product-search";
 import type { WooCatalogCategory } from "@/lib/woocommerce";
 
 type AllProductsPageProps = {
@@ -137,6 +138,30 @@ function getDiscountPercent(product: HomeProduct) {
   return Math.round(((mrp - price) / mrp) * 100);
 }
 
+function getProductIdentity(product: HomeProduct) {
+  return String(product.id ?? product.slug ?? product.name);
+}
+
+function sortCollectionProducts(productsToSort: HomeProduct[], sortBy: string) {
+  if (sortBy === "Newest First") {
+    return [...productsToSort].reverse();
+  }
+
+  if (sortBy === "Price: Low to High") {
+    return [...productsToSort].sort((first, second) => {
+      return (readPrice(first.price) ?? Number.MAX_SAFE_INTEGER) - (readPrice(second.price) ?? Number.MAX_SAFE_INTEGER);
+    });
+  }
+
+  if (sortBy === "Price: High to Low") {
+    return [...productsToSort].sort((first, second) => {
+      return (readPrice(second.price) ?? 0) - (readPrice(first.price) ?? 0);
+    });
+  }
+
+  return productsToSort;
+}
+
 export default function AllProductsPage({
   products,
   categories,
@@ -221,9 +246,7 @@ export default function AllProductsPage({
     return Array.from(unique.values()).slice(0, 10);
   }, [categories, products]);
 
-  const filteredProducts = useMemo(() => {
-    const searchTerms = normalize(searchQuery).split(" ").filter(Boolean);
-
+  const filteredProductsWithoutSearch = useMemo(() => {
     return products.filter((product) => {
       const haystack = normalize(
         [
@@ -242,8 +265,6 @@ export default function AllProductsPage({
       const matchesCategory =
         activeCategory === "all" ||
         productCategoryKeys.has(slugifyFilter(activeCategory));
-      const matchesSearch =
-        searchTerms.length === 0 || searchTerms.every((term) => haystack.includes(term));
       const selectedConcern = concernFilters.find((concern) => concern.slug === activeConcern);
       const matchesConcern =
         activeConcern === "all" ||
@@ -255,31 +276,50 @@ export default function AllProductsPage({
         (productPrice !== null &&
           Boolean(selectedPrice && productPrice >= selectedPrice.min && productPrice < selectedPrice.max));
 
-      return matchesCategory && matchesSearch && matchesConcern && matchesPrice;
+      return matchesCategory && matchesConcern && matchesPrice;
     });
-  }, [activeCategory, activeConcern, activePrice, products, searchQuery]);
+  }, [activeCategory, activeConcern, activePrice, products]);
+
+  const filteredProducts = useMemo(() => {
+    const activeQuery = searchQuery.trim();
+
+    if (!activeQuery) {
+      return filteredProductsWithoutSearch;
+    }
+
+    return filteredProductsWithoutSearch.filter((product) => matchesProductSearch(product, activeQuery));
+  }, [filteredProductsWithoutSearch, searchQuery]);
+
+  const activeSearchQuery = searchQuery.trim();
 
   const sortedProducts = useMemo(() => {
-    const productsToSort = [...filteredProducts];
-
-    if (sortBy === "Newest First") {
-      return productsToSort.reverse();
+    if (activeSearchQuery && sortBy === "Featured") {
+      return sortProductsBySearchRelevance(filteredProducts, activeSearchQuery);
     }
 
-    if (sortBy === "Price: Low to High") {
-      return productsToSort.sort((first, second) => {
-        return (readPrice(first.price) ?? Number.MAX_SAFE_INTEGER) - (readPrice(second.price) ?? Number.MAX_SAFE_INTEGER);
-      });
+    return sortCollectionProducts(filteredProducts, sortBy);
+  }, [activeSearchQuery, filteredProducts, sortBy]);
+
+  const otherProducts = useMemo(() => {
+    if (!activeSearchQuery) {
+      return [];
     }
 
-    if (sortBy === "Price: High to Low") {
-      return productsToSort.sort((first, second) => {
-        return (readPrice(second.price) ?? 0) - (readPrice(first.price) ?? 0);
-      });
-    }
+    const matchedProductKeys = new Set(filteredProducts.map(getProductIdentity));
+    const remainingProducts = filteredProductsWithoutSearch.filter(
+      (product) => !matchedProductKeys.has(getProductIdentity(product))
+    );
 
-    return productsToSort;
-  }, [filteredProducts, sortBy]);
+    return sortCollectionProducts(remainingProducts, sortBy);
+  }, [activeSearchQuery, filteredProducts, filteredProductsWithoutSearch, sortBy]);
+
+  const hasSearchFallback = activeSearchQuery.length > 0 && sortedProducts.length === 0 && otherProducts.length > 0;
+  const hasProductsToShow = sortedProducts.length > 0 || otherProducts.length > 0;
+  const collectionCountLabel = activeSearchQuery
+    ? sortedProducts.length > 0
+      ? `${sortedProducts.length} matching products`
+      : `Showing ${otherProducts.length} other products`
+    : `${sortedProducts.length} products`;
 
   const hasActiveFilters =
     activeCategory !== "all" || activeConcern !== "all" || activePrice !== "all" || searchQuery.trim().length > 0;
@@ -412,6 +452,81 @@ export default function AllProductsPage({
     </aside>
   );
 
+  const renderProductCard = (product: HomeProduct, index: number) => (
+    <motion.article
+      className="collection-card"
+      key={getProductIdentity(product)}
+      variants={cardReveal}
+      initial={reduceMotion ? false : "hidden"}
+      animate="show"
+      exit="exit"
+      layout
+      transition={{
+        duration: 0.34,
+        delay: reduceMotion ? 0 : Math.min(index, 9) * 0.025,
+        ease: "easeOut"
+      }}
+    >
+      <div className="collection-card-media">
+        <a href={product.href ?? "#"} aria-label={product.name}>
+          <span className="collection-product-glow" style={{ backgroundColor: product.tone }} />
+          <span className="collection-image-flip">
+            <span className="collection-image-face collection-image-front">
+              <Image
+                src={product.image}
+                alt={product.name}
+                fill
+                className={loadedImages.has(product.image) ? "is-loaded" : undefined}
+                loading={index < 6 ? "eager" : "lazy"}
+                onLoad={() => markImageLoaded(product.image)}
+                sizes="(max-width: 640px) 100vw, (max-width: 980px) 50vw, 25vw"
+              />
+            </span>
+            {product.hoverImage ? (
+              <span className="collection-image-face collection-image-back">
+                <Image
+                  src={product.hoverImage}
+                  alt=""
+                  fill
+                  className={loadedImages.has(product.hoverImage) ? "is-loaded" : undefined}
+                  loading="lazy"
+                  onLoad={() => markImageLoaded(product.hoverImage)}
+                  sizes="(max-width: 640px) 100vw, (max-width: 980px) 50vw, 25vw"
+                  aria-hidden="true"
+                />
+              </span>
+            ) : null}
+          </span>
+        </a>
+        <button
+          type="button"
+          className="quick-add-button"
+          aria-label={`Add ${product.name} to cart`}
+          onClick={() => addItem(product)}
+        >
+          <Plus aria-hidden="true" size={28} strokeWidth={1.8} />
+        </button>
+      </div>
+      <div className="collection-card-body">
+        <span className="collection-card-tag">{product.tag}</span>
+        <a className="collection-card-title" href={product.href ?? "#"}>
+          {product.name}
+        </a>
+        <div className="collection-price-row">
+          <strong className="collection-card-price">{product.price}</strong>
+          {product.mrp && getDiscountPercent(product) > 0 ? (
+            <>
+              <span className="collection-card-mrp">{product.mrp}</span>
+              <span className="product-discount-badge collection-discount-badge">
+                {getDiscountPercent(product)}% off
+              </span>
+            </>
+          ) : null}
+        </div>
+      </div>
+    </motion.article>
+  );
+
   return (
     <>
       <SiteHeader variant="solid" categories={categories} searchProducts={products} />
@@ -444,8 +559,11 @@ export default function AllProductsPage({
                   </div>
                 ) : null}
                 <div className="collection-count">
-                  {sortedProducts.length} products
+                  {collectionCountLabel}
                 </div>
+                {hasSearchFallback ? (
+                  <p className="collection-fallback-note">No matches found. Showing other products.</p>
+                ) : null}
               </div>
               <button
                 type="button"
@@ -455,103 +573,55 @@ export default function AllProductsPage({
                 <SlidersHorizontal aria-hidden="true" size={16} />
                 Filters
               </button>
-              <div className="collection-view-sort">
-                <select value={sortBy} onChange={(event) => setSortBy(event.target.value)}>
-                  {sortOptions.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {hasProductsToShow ? (
+                <div className="collection-view-sort">
+                  <select value={sortBy} onChange={(event) => setSortBy(event.target.value)}>
+                    {sortOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
             </div>
 
-            <motion.div
-              className="collection-grid"
-              aria-label={title}
-              variants={gridReveal}
-              initial={reduceMotion ? false : "hidden"}
-              animate="show"
-              layout
-            >
-              <AnimatePresence mode="popLayout">
-                {sortedProducts.map((product, index) => (
-                  <motion.article
-                    className="collection-card"
-                    key={product.id ?? product.slug ?? `${product.name}-${index}`}
-                    variants={cardReveal}
-                    initial={reduceMotion ? false : "hidden"}
-                    animate="show"
-                    exit="exit"
-                    layout
-                    transition={{
-                      duration: 0.34,
-                      delay: reduceMotion ? 0 : Math.min(index, 9) * 0.025,
-                      ease: "easeOut"
-                    }}
-                  >
-                    <div className="collection-card-media">
-                      <a href={product.href ?? "#"} aria-label={product.name}>
-                        <span className="collection-product-glow" style={{ backgroundColor: product.tone }} />
-                        <span className="collection-image-flip">
-                          <span className="collection-image-face collection-image-front">
-                            <Image
-                              src={product.image}
-                              alt={product.name}
-                              fill
-                              className={loadedImages.has(product.image) ? "is-loaded" : undefined}
-                              loading={index < 6 ? "eager" : "lazy"}
-                              onLoad={() => markImageLoaded(product.image)}
-                              sizes="(max-width: 640px) 100vw, (max-width: 980px) 50vw, 25vw"
-                            />
-                          </span>
-                          {product.hoverImage ? (
-                            <span className="collection-image-face collection-image-back">
-                              <Image
-                                src={product.hoverImage}
-                                alt=""
-                                fill
-                                className={loadedImages.has(product.hoverImage) ? "is-loaded" : undefined}
-                                loading="lazy"
-                                onLoad={() => markImageLoaded(product.hoverImage)}
-                                sizes="(max-width: 640px) 100vw, (max-width: 980px) 50vw, 25vw"
-                                aria-hidden="true"
-                              />
-                            </span>
-                          ) : null}
-                        </span>
-                      </a>
-                      <button
-                        type="button"
-                        className="quick-add-button"
-                        aria-label={`Add ${product.name} to cart`}
-                        onClick={() => addItem(product)}
-                      >
-                        <Plus aria-hidden="true" size={28} strokeWidth={1.8} />
-                      </button>
-                    </div>
-                    <div className="collection-card-body">
-                      <span className="collection-card-tag">{product.tag}</span>
-                      <a className="collection-card-title" href={product.href ?? "#"}>
-                        {product.name}
-                      </a>
-                      <div className="collection-price-row">
-                        <strong className="collection-card-price">{product.price}</strong>
-                        {product.mrp && getDiscountPercent(product) > 0 ? (
-                          <>
-                            <span className="collection-card-mrp">{product.mrp}</span>
-                            <span className="product-discount-badge collection-discount-badge">
-                              {getDiscountPercent(product)}% off
-                            </span>
-                          </>
-                        ) : null}
-                      </div>
-                    </div>
-                  </motion.article>
-                ))}
-              </AnimatePresence>
-            </motion.div>
-            {sortedProducts.length === 0 ? (
+            {sortedProducts.length > 0 ? (
+              <motion.div
+                className="collection-grid"
+                aria-label={activeSearchQuery ? "Matching products" : title}
+                variants={gridReveal}
+                initial={reduceMotion ? false : "hidden"}
+                animate="show"
+                layout
+              >
+                <AnimatePresence mode="popLayout">
+                  {sortedProducts.map(renderProductCard)}
+                </AnimatePresence>
+              </motion.div>
+            ) : null}
+
+            {otherProducts.length > 0 ? (
+              <section className="collection-other-products" aria-label="Other products">
+                <div className="collection-section-header">
+                  <h2>Other products</h2>
+                </div>
+                <motion.div
+                  className="collection-grid"
+                  aria-label="Other products"
+                  variants={gridReveal}
+                  initial={reduceMotion ? false : "hidden"}
+                  animate="show"
+                  layout
+                >
+                  <AnimatePresence mode="popLayout">
+                    {otherProducts.map((product, index) => renderProductCard(product, index + sortedProducts.length))}
+                  </AnimatePresence>
+                </motion.div>
+              </section>
+            ) : null}
+
+            {!hasProductsToShow ? (
               <div className="collection-empty">
                 <p>No products match these filters.</p>
                 <button type="button" className="filter-reset" onClick={resetFilters}>

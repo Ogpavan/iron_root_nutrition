@@ -1,35 +1,8 @@
 import { NextResponse } from "next/server";
+import { matchesProductSearch, sortProductsBySearchRelevance } from "@/lib/product-search";
 import { getAllProducts } from "@/lib/woocommerce";
 
 const maxLimit = 48;
-
-function normalize(value: string) {
-  return value.toLowerCase().replace(/\s+/g, " ").trim();
-}
-
-function matchesQuery(product: Awaited<ReturnType<typeof getAllProducts>>[number], query: string) {
-  const terms = normalize(query).split(" ").filter(Boolean);
-
-  if (terms.length === 0) {
-    return true;
-  }
-
-  const haystack = normalize(
-    [
-      product.name,
-      product.tag,
-      product.price,
-      product.sku,
-      product.slug,
-      product.shortDescription,
-      product.description
-    ]
-      .filter(Boolean)
-      .join(" ")
-  );
-
-  return terms.every((term) => haystack.includes(term));
-}
 
 function readLimit(value: string | null) {
   const parsed = Number(value);
@@ -46,7 +19,14 @@ export async function GET(request: Request) {
   const query = searchParams.get("query") ?? searchParams.get("q") ?? "";
   const limit = readLimit(searchParams.get("limit"));
   const products = await getAllProducts(maxLimit);
-  const results = products.filter((product) => matchesQuery(product, query)).slice(0, limit);
+  const matchedResults = sortProductsBySearchRelevance(
+    products.filter((product) => matchesProductSearch(product, query)),
+    query
+  );
+  const results =
+    matchedResults.length > 0 || query.trim().length === 0
+      ? matchedResults.slice(0, limit)
+      : products.slice(0, limit);
 
   return NextResponse.json(
     {
