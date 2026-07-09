@@ -110,11 +110,11 @@ export default function SupportPage({ categories, products }: SupportPageProps) 
               Our support team is here to keep your training routine moving.
             </span>
             <div className="support-hero-actions">
-              <a className="support-button dark" href="tel:+18001234567">
+              <a className="support-button dark" href="tel:+919027135078">
                 <Phone aria-hidden="true" size={15} />
                 Call us
               </a>
-              <a className="support-button" href="mailto:support@ironrootnutrition.com">
+              <a className="support-button" href="mailto:ironroot715@gmail.com">
                 <Mail aria-hidden="true" size={15} />
                 Email us
               </a>
@@ -222,12 +222,7 @@ export default function SupportPage({ categories, products }: SupportPageProps) 
           <div>
             <Phone aria-hidden="true" size={28} />
             <h3>Call us</h3>
-            <p>+1 (800) 123-4567</p>
-          </div>
-          <div>
-            <MessageCircle aria-hidden="true" size={28} />
-            <h3>Live chat</h3>
-            <p>Quick product questions</p>
+            <p>9027135078</p>
           </div>
           <div>
             <Star aria-hidden="true" size={28} />

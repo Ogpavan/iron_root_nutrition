@@ -86,19 +86,19 @@ export default function SiteFooter() {
             </p>
 
             <div className="footer-contact-list">
-              <a className="footer-contact-row" href="mailto:support@ironrootnutrition.com">
+              <a className="footer-contact-row" href="mailto:ironroot715@gmail.com">
                 <span>
                   <Mail size={20} aria-hidden="true" />
                 </span>
                 <strong>Email Support</strong>
-                <em>support@ironrootnutrition.com</em>
+                <em>ironroot715@gmail.com</em>
                 <ChevronRight size={17} aria-hidden="true" />
               </a>
-              <a className="footer-contact-row" href="tel:+18001234567">
+              <a className="footer-contact-row" href="tel:+919027135078">
                 <span>
                   <Phone size={20} aria-hidden="true" />
                 </span>
-                <strong>+1 (800) 123-4567</strong>
+                <strong>9027135078</strong>
                 <em>Mon-Sat, 9AM - 6PM</em>
                 <ChevronRight size={17} aria-hidden="true" />
               </a>

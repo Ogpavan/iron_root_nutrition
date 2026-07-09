@@ -217,7 +217,7 @@ export default function LegalPage({
               <h2>Contact</h2>
               <p>
                 For privacy, order, or legal questions, contact IronRoot Nutrition support at{" "}
-                <a href="mailto:support@ironrootnutrition.com">support@ironrootnutrition.com</a>.
+                <a href="mailto:ironroot715@gmail.com">ironroot715@gmail.com</a>.
               </p>
               <a className="legal-contact-link" href="/support#contact-form">
                 <Mail size={16} aria-hidden="true" />
