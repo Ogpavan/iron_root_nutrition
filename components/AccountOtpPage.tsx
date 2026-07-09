@@ -87,10 +87,6 @@ const profileAssurances = [
   }
 ];
 
-function createOtp() {
-  return String(Math.floor(100000 + Math.random() * 900000));
-}
-
 function hasUsablePhone(value: string) {
   return value.replace(/\D/g, "").length >= 7;
 }
@@ -113,11 +109,13 @@ export default function AccountOtpPage({ categories }: AccountOtpPageProps) {
   const [name, setName] = useState("");
   const [identifier, setIdentifier] = useState("");
   const [otp, setOtp] = useState("");
-  const [generatedOtp, setGeneratedOtp] = useState("");
+  const [otpToken, setOtpToken] = useState("");
   const [step, setStep] = useState<"identity" | "verify">("identity");
   const [message, setMessage] = useState("");
   const [user, setUser] = useState<AuthUser | null>(null);
   const [authReady, setAuthReady] = useState(false);
+  const [isRequestingOtp, setIsRequestingOtp] = useState(false);
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [profileName, setProfileName] = useState("");
   const [profileEmail, setProfileEmail] = useState("");
@@ -197,7 +195,7 @@ export default function AccountOtpPage({ categories }: AccountOtpPageProps) {
     };
   }, [isEditingProfile, user]);
 
-  const handleRequestOtp = (event: FormEvent<HTMLFormElement>) => {
+  const handleRequestOtp = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const normalizedName = name.trim();
     const normalized = normalizeAuthEmail(identifier);
@@ -212,32 +210,84 @@ export default function AccountOtpPage({ categories }: AccountOtpPageProps) {
       return;
     }
 
-    const nextOtp = createOtp();
-    setIdentifier(normalized);
-    setGeneratedOtp(nextOtp);
-    setOtp("");
-    setStep("verify");
-    setMessage(`OTP sent. Demo OTP: ${nextOtp}`);
+    setIsRequestingOtp(true);
+    setMessage("");
+
+    try {
+      const response = await fetch("/api/account/otp/request", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          name: normalizedName,
+          email: normalized
+        })
+      });
+      const data = (await response.json()) as {
+        token?: string;
+        message?: string;
+        error?: string;
+      };
+
+      if (!response.ok || !data.token) {
+        setMessage(data.error || "Could not send OTP. Please try again.");
+        return;
+      }
+
+      setIdentifier(normalized);
+      setOtpToken(data.token);
+      setOtp("");
+      setStep("verify");
+      setMessage(data.message || "OTP sent to your email address.");
+    } catch {
+      setMessage("Could not send OTP. Check your connection and try again.");
+    } finally {
+      setIsRequestingOtp(false);
+    }
   };
 
-  const handleVerifyOtp = (event: FormEvent<HTMLFormElement>) => {
+  const handleVerifyOtp = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (otp.trim() !== generatedOtp) {
-      setMessage("The OTP does not match. Check the code and try again.");
+    if (!otpToken) {
+      setStep("identity");
+      setMessage("Request a new OTP to continue.");
       return;
     }
 
-    const nextUser = {
-      name: name.trim(),
-      identifier: normalizeAuthEmail(identifier),
-      email: normalizeAuthEmail(identifier),
-      signedInAt: new Date().toISOString()
-    };
+    setIsVerifyingOtp(true);
+    setMessage("");
 
-    window.localStorage.setItem(accountStorageKey, JSON.stringify(nextUser));
-    setUser(nextUser);
-    setMessage("You are signed in.");
+    try {
+      const response = await fetch("/api/account/otp/verify", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          token: otpToken,
+          otp: otp.trim()
+        })
+      });
+      const data = (await response.json()) as {
+        user?: AuthUser;
+        error?: string;
+      };
+
+      if (!response.ok || !data.user) {
+        setMessage(data.error || "Could not verify OTP. Please try again.");
+        return;
+      }
+
+      window.localStorage.setItem(accountStorageKey, JSON.stringify(data.user));
+      setUser(data.user);
+      setMessage("You are signed in.");
+    } catch {
+      setMessage("Could not verify OTP. Check your connection and try again.");
+    } finally {
+      setIsVerifyingOtp(false);
+    }
   };
 
   const handleProfileSave = (event: FormEvent<HTMLFormElement>) => {
@@ -286,7 +336,7 @@ export default function AccountOtpPage({ categories }: AccountOtpPageProps) {
     setName("");
     setIdentifier("");
     setOtp("");
-    setGeneratedOtp("");
+    setOtpToken("");
     setStep("identity");
     setMessage("");
   };
@@ -600,7 +650,9 @@ export default function AccountOtpPage({ categories }: AccountOtpPageProps) {
                       required
                     />
                   </div>
-                  <button type="submit">Send OTP</button>
+                  <button type="submit" disabled={isRequestingOtp}>
+                    {isRequestingOtp ? "Sending..." : "Send OTP"}
+                  </button>
                 </form>
               ) : (
                 <form className="account-form" onSubmit={handleVerifyOtp}>
@@ -615,14 +667,16 @@ export default function AccountOtpPage({ categories }: AccountOtpPageProps) {
                     autoComplete="one-time-code"
                     required
                   />
-                  <button type="submit">Verify and continue</button>
+                  <button type="submit" disabled={isVerifyingOtp}>
+                    {isVerifyingOtp ? "Verifying..." : "Verify and continue"}
+                  </button>
                   <button
                     type="button"
                     className="account-text-button"
                     onClick={() => {
                       setStep("identity");
                       setOtp("");
-                      setGeneratedOtp("");
+                      setOtpToken("");
                       setMessage("");
                     }}
                   >
