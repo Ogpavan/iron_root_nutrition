@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { isValidAuthEmail, normalizeAuthEmail } from "@/lib/account-auth";
+import { isRazorpayReviewEmail, razorpayReviewOtp } from "@/lib/account-review-auth";
 import { createAccountOtpChallenge, sendSignupOtpEmail } from "@/lib/account-otp";
 
 type AccountOtpRequestBody = {
@@ -28,7 +29,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Enter a valid email address." }, { status: 400 });
     }
 
-    const challenge = createAccountOtpChallenge(name, email);
+    const isReviewAccount = isRazorpayReviewEmail(email);
+    const challenge = createAccountOtpChallenge(
+      name,
+      email,
+      isReviewAccount ? { otp: razorpayReviewOtp } : undefined
+    );
+
+    if (isReviewAccount) {
+      return NextResponse.json({
+        token: challenge.token,
+        expiresAt: challenge.expiresAt,
+        message: `Use OTP ${razorpayReviewOtp} to continue.`
+      });
+    }
 
     await sendSignupOtpEmail({
       to: email,

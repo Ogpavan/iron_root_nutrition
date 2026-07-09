@@ -20,6 +20,10 @@ type SendOtpEmailInput = {
   otp: string;
 };
 
+type CreateAccountOtpChallengeOptions = {
+  otp?: string;
+};
+
 const otpTtlMs = 10 * 60 * 1000;
 
 function getEnvValue(...names: string[]) {
@@ -124,6 +128,18 @@ function parseOtpPayload(value: unknown): AccountOtpPayload | null {
   };
 }
 
+function createOtp(options?: CreateAccountOtpChallengeOptions) {
+  if (!options?.otp) {
+    return String(randomInt(100000, 1000000));
+  }
+
+  if (!/^\d{6}$/.test(options.otp)) {
+    throw new Error("OTP must be a 6-digit code.");
+  }
+
+  return options.otp;
+}
+
 function escapeHtml(value: string) {
   return value
     .replace(/&/g, "&amp;")
@@ -133,9 +149,13 @@ function escapeHtml(value: string) {
     .replace(/'/g, "&#039;");
 }
 
-export function createAccountOtpChallenge(name: string, email: string) {
+export function createAccountOtpChallenge(
+  name: string,
+  email: string,
+  options?: CreateAccountOtpChallengeOptions
+) {
   const secret = getOtpSecret();
-  const otp = String(randomInt(100000, 1000000));
+  const otp = createOtp(options);
   const salt = randomBytes(16).toString("hex");
   const payload: AccountOtpPayload = {
     purpose: "account-otp",
