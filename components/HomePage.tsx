@@ -65,7 +65,7 @@ const fitnessHeadingItem = {
 type FlavourTile = (typeof flavourTiles)[number];
 
 const founderImage =
-  "https://admin.ironrootnutrition.com/wp-content/uploads/2026/06/founder_image.png?v=20260610-1";
+  "https://admin.ironrootnutrition.com/wp-content/uploads/2026/07/ChatGPT-Image-Jul-16-2026-04_08_17-PM.png";
 const heroMobileImage =
   "https://admin.ironrootnutrition.com/wp-content/uploads/2026/06/ChatGPT-Image-Jun-19-2026-12_54_24-PM.png";
 

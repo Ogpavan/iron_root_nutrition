@@ -12,7 +12,7 @@ type FounderStoryPageProps = {
 };
 
 const founderImage =
-  "https://admin.ironrootnutrition.com/wp-content/uploads/2026/06/founder_image.png?v=20260610-1";
+  "https://admin.ironrootnutrition.com/wp-content/uploads/2026/07/ChatGPT-Image-Jul-16-2026-04_08_17-PM.png";
 
 const storyPillars = [
   {

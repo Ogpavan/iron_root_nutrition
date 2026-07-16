@@ -28,6 +28,23 @@ type XpressBeesShipmentResponse = {
   message?: string;
 };
 
+type XpressBeesTrackResponse = {
+  status?: boolean;
+  data?: {
+    awb_number?: string;
+    status?: string;
+    shipment_info?: string;
+    courier_id?: number | string;
+    history?: {
+      status_code?: string;
+      location?: string;
+      event_time?: string;
+      message?: string;
+    }[];
+  };
+  message?: string;
+};
+
 export type XpressBeesWarehouseConfig = {
   name: string;
   contactName: string;
@@ -91,6 +108,18 @@ export type XpressBeesShipment = {
   label?: string;
 };
 
+export type XpressBeesTracking = {
+  awbNumber?: string;
+  status?: string;
+  statusCode?: string;
+  statusLabel: string;
+  location?: string;
+  eventTime?: string;
+  message?: string;
+  shipmentInfo?: string;
+  courierId?: string;
+};
+
 function getRequiredEnv(name: string) {
   const value = process.env[name]?.trim();
 
@@ -150,6 +179,10 @@ function cleanPhone(value: string) {
   return value.replace(/\D/g, "").slice(-10);
 }
 
+function cleanAwb(value: string) {
+  return value.replace(/[^a-zA-Z0-9]/g, "");
+}
+
 function limitLength(value: string, maxLength: number) {
   return value.trim().slice(0, maxLength);
 }
@@ -172,6 +205,61 @@ async function postXpressBees<T>(path: string, body: unknown): Promise<T> {
   }
 
   return data;
+}
+
+async function getXpressBees<T>(path: string): Promise<T> {
+  const token = await getXpressBeesToken();
+  const response = await fetch(`https://shipment.xpressbees.com/api${path}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json"
+    },
+    cache: "no-store"
+  });
+  const data = (await response.json().catch(() => null)) as T & { message?: string; status?: boolean };
+
+  if (!response.ok) {
+    throw new Error(data?.message || "XpressBees request failed.");
+  }
+
+  return data;
+}
+
+function getTrackingStatusLabel(value?: string) {
+  const normalized = value?.trim().toUpperCase();
+
+  switch (normalized) {
+    case "PP":
+      return "Pending pickup";
+    case "IT":
+      return "In transit";
+    case "EX":
+      return "Delivery issue";
+    case "FD":
+      return "Out for delivery";
+    case "DL":
+      return "Delivered";
+    case "RT":
+      return "Returning";
+    case "RT-IT":
+      return "Return in transit";
+    case "RT-DL":
+      return "Returned";
+    case "RTO":
+      return "Returning";
+    case "CANCEL":
+    case "CANCELED":
+    case "CANCELLED":
+      return "Cancelled";
+    default:
+      return value
+        ? value
+            .split(/[-_\s]+/)
+            .filter(Boolean)
+            .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+            .join(" ")
+        : "Tracking available";
+  }
 }
 
 export async function getXpressBeesServiceabilityRates(input: {
@@ -279,5 +367,39 @@ export async function createXpressBeesShipment(input: XpressBeesShipmentInput): 
     additionalInfo: data.data.additional_info,
     paymentType: data.data.payment_type,
     label: data.data.label
+  };
+}
+
+export async function getXpressBeesTracking(awbNumber: string): Promise<XpressBeesTracking> {
+  const awb = cleanAwb(awbNumber);
+
+  if (!awb) {
+    throw new Error("XpressBees AWB number is missing.");
+  }
+
+  const data = await getXpressBees<XpressBeesTrackResponse>(`/shipments2/track/${encodeURIComponent(awb)}`);
+
+  if (!data.status || !data.data) {
+    throw new Error(data.message || "XpressBees tracking was not found.");
+  }
+
+  const latestEvent = Array.isArray(data.data.history) && data.data.history.length > 0
+    ? data.data.history[data.data.history.length - 1]
+    : undefined;
+  const shipmentStatus = data.data.status?.trim();
+  const statusCode = shipmentStatus?.toLowerCase().startsWith("cancel")
+    ? shipmentStatus
+    : latestEvent?.status_code || shipmentStatus;
+
+  return {
+    awbNumber: data.data.awb_number || awb,
+    status: data.data.status,
+    statusCode,
+    statusLabel: getTrackingStatusLabel(statusCode),
+    location: latestEvent?.location,
+    eventTime: latestEvent?.event_time,
+    message: latestEvent?.message,
+    shipmentInfo: data.data.shipment_info,
+    courierId: data.data.courier_id === undefined ? undefined : String(data.data.courier_id)
   };
 }

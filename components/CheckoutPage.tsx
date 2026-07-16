@@ -51,6 +51,17 @@ type RazorpayVerifyResponse = {
   error?: string;
 };
 
+type CheckoutConfirmation = {
+  orderNumber?: string;
+  orderStatus?: string;
+  paymentId?: string;
+  paymentMethod: string;
+  total: number;
+  shippingTitle?: string;
+  shippingTotal: number;
+  email: string;
+};
+
 type CheckoutCustomer = {
   firstName: string;
   lastName: string;
@@ -430,6 +441,7 @@ export default function CheckoutPage({ categories }: CheckoutPageProps) {
   const router = useRouter();
   const { clearCart, isHydrated, items, itemCount, subtotal } = useCart();
   const [complete, setComplete] = useState(false);
+  const [confirmation, setConfirmation] = useState<CheckoutConfirmation | null>(null);
   const [paymentError, setPaymentError] = useState("");
   const [paymentProcessing, setPaymentProcessing] = useState(false);
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
@@ -830,6 +842,16 @@ export default function CheckoutPage({ categories }: CheckoutPageProps) {
               }
 
               completed = true;
+              setConfirmation({
+                orderNumber: verification.order.number ?? String(verification.order.id),
+                orderStatus: verification.order.status,
+                paymentId: response.razorpay_payment_id,
+                paymentMethod: "Razorpay",
+                total,
+                shippingTitle: selectedShipping?.title,
+                shippingTotal,
+                email: checkoutPayload.customer.email
+              });
               clearCart();
               setComplete(true);
               resolve();
@@ -922,8 +944,42 @@ export default function CheckoutPage({ categories }: CheckoutPageProps) {
                 <span className="checkout-success-icon">
                   <Check size={28} aria-hidden="true" />
                 </span>
-                <h2>Order received</h2>
-                <p>We have received your request and our team will contact you shortly.</p>
+                <h2>Payment successful</h2>
+                <p>Your order has been placed.</p>
+                {confirmation ? (
+                  <div className="checkout-success-details">
+                    <div>
+                      <span>Order</span>
+                      <strong>#{confirmation.orderNumber ?? "Confirmed"}</strong>
+                    </div>
+                    <div>
+                      <span>Total paid</span>
+                      <strong>{currencyFormatter.format(confirmation.total)}</strong>
+                    </div>
+                    <div>
+                      <span>Payment</span>
+                      <strong>{confirmation.paymentMethod}</strong>
+                    </div>
+                    {confirmation.shippingTitle ? (
+                      <div>
+                        <span>Shipping</span>
+                        <strong>
+                          {confirmation.shippingTitle} · {currencyFormatter.format(confirmation.shippingTotal)}
+                        </strong>
+                      </div>
+                    ) : null}
+                    {confirmation.orderStatus ? (
+                      <div>
+                        <span>Status</span>
+                        <strong>{confirmation.orderStatus}</strong>
+                      </div>
+                    ) : null}
+                    <div>
+                      <span>Confirmation</span>
+                      <strong>{confirmation.email}</strong>
+                    </div>
+                  </div>
+                ) : null}
                 <button type="button" onClick={() => router.push("/all-products")}>
                   Continue shopping
                 </button>

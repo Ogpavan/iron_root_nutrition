@@ -42,6 +42,8 @@ type WooShippingMethod = {
   settings?: Record<string, { value?: unknown }>;
 };
 
+const TEMPORARY_FREE_SHIPPING_PHONE = "7302667115";
+
 function getWooCredentials() {
   const siteUrl = process.env.WORDPRESS_SITE_URL;
   const consumerKey = process.env.WOOCOMMERCE_CONSUMER_KEY;
@@ -77,6 +79,10 @@ function readAmount(value: unknown) {
   const parsed = Number(String(value ?? "").replace(/[^0-9.]/g, ""));
 
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function normalizePhone(value: string) {
+  return value.replace(/\D/g, "").slice(-10);
 }
 
 async function getWooJson<T>(path: string): Promise<T> {
@@ -258,6 +264,8 @@ export async function getCheckoutShippingOptions(
 ) {
   const pricing = await calculateDiscountedCheckoutAmountPaise(items, discountCode);
   const packageSummary = await calculateCheckoutPackageSummary(items);
+  // TODO: Remove this temporary free-shipping bypass after checkout testing is complete.
+  const hasTemporaryFreeShipping = normalizePhone(customer.phone) === TEMPORARY_FREE_SHIPPING_PHONE;
   const rates = await getXpressBeesServiceabilityRates({
     destinationPincode: customer.pincode,
     paymentType: "prepaid",
@@ -278,10 +286,10 @@ export async function getCheckoutShippingOptions(
       methodId: "xpressbees",
       instanceId: Number(rate.courierId),
       title: rate.courierName,
-      total: rate.totalCharges,
+      total: hasTemporaryFreeShipping ? 0 : rate.totalCharges,
       packageSummary,
       xpressBees: {
-        charge: rate.totalCharges,
+        charge: hasTemporaryFreeShipping ? 0 : rate.totalCharges,
         courierId: rate.courierId,
         courierName: rate.courierName,
         freightCharges: rate.freightCharges,

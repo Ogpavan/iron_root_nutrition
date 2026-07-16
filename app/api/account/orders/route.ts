@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getXpressBeesTracking, type XpressBeesTracking } from "@/lib/xpressbees";
 
 type AccountOrdersBody = {
   email?: string;
@@ -29,6 +30,10 @@ type WooOrder = {
     phone?: string;
   };
   line_items?: WooOrderLineItem[];
+  meta_data?: {
+    key?: string;
+    value?: unknown;
+  }[];
 };
 
 function getWooCredentials() {
@@ -70,6 +75,69 @@ function statusLabel(value?: string) {
     .split("-")
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
+}
+
+function getMetaValue(order: WooOrder, key: string) {
+  const item = order.meta_data?.find((meta) => meta.key === key);
+
+  return item?.value === undefined || item.value === null ? "" : String(item.value).trim();
+}
+
+function formatTrackingTime(value?: string) {
+  if (!value) {
+    return undefined;
+  }
+
+  const date = new Date(value.replace(" ", "T"));
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
+
+function mapDeliveryTracking(tracking: XpressBeesTracking, fallbackAwb: string, courierName: string) {
+  return {
+    awbNumber: tracking.awbNumber || fallbackAwb,
+    courierName: courierName || "XpressBees",
+    status: tracking.status || tracking.statusCode || "",
+    statusCode: tracking.statusCode || "",
+    statusLabel: tracking.statusLabel,
+    location: tracking.location,
+    message: tracking.message,
+    eventTime: formatTrackingTime(tracking.eventTime)
+  };
+}
+
+async function getOrderDelivery(order: WooOrder) {
+  const awbNumber = getMetaValue(order, "_xpressbees_awb_number");
+
+  if (!awbNumber) {
+    return undefined;
+  }
+
+  const courierName = getMetaValue(order, "_xpressbees_courier_name") || "XpressBees";
+
+  try {
+    const tracking = await getXpressBeesTracking(awbNumber);
+
+    return mapDeliveryTracking(tracking, awbNumber, courierName);
+  } catch {
+    return {
+      awbNumber,
+      courierName,
+      status: "",
+      statusCode: "",
+      statusLabel: "Tracking unavailable"
+    };
+  }
 }
 
 function matchesCustomer(order: WooOrder, email: string, phone: string) {
@@ -130,23 +198,26 @@ export async function POST(request: Request) {
         byId.set(order.id as number, order);
       });
 
-    const orders = Array.from(byId.values()).map((order) => ({
-      id: order.id,
-      number: order.number || String(order.id),
-      status: order.status || "processing",
-      statusLabel: statusLabel(order.status),
-      dateCreated: order.date_created,
-      total: formatCurrency(order.total, order.currency),
-      paymentMethod: order.payment_method_title || "Payment",
-      items: (order.line_items ?? []).map((item) => ({
-        id: item.id,
-        productId: item.product_id,
-        name: item.name || "Product",
-        quantity: item.quantity ?? 1,
-        total: formatCurrency(item.total, order.currency),
-        image: item.image?.src
+    const orders = await Promise.all(
+      Array.from(byId.values()).map(async (order) => ({
+        id: order.id,
+        number: order.number || String(order.id),
+        status: order.status || "processing",
+        statusLabel: statusLabel(order.status),
+        dateCreated: order.date_created,
+        total: formatCurrency(order.total, order.currency),
+        paymentMethod: order.payment_method_title || "Payment",
+        delivery: await getOrderDelivery(order),
+        items: (order.line_items ?? []).map((item) => ({
+          id: item.id,
+          productId: item.product_id,
+          name: item.name || "Product",
+          quantity: item.quantity ?? 1,
+          total: formatCurrency(item.total, order.currency),
+          image: item.image?.src
+        }))
       }))
-    }));
+    );
 
     return NextResponse.json({ orders });
   } catch (error) {
