@@ -105,6 +105,16 @@ type ShippingResponse = {
   error?: string;
 };
 
+type PincodeLookupResponse = {
+  pincode?: string;
+  district?: string;
+  division?: string;
+  region?: string;
+  block?: string;
+  state?: string;
+  country?: string;
+};
+
 type WooAddress = {
   first_name?: string;
   last_name?: string;
@@ -124,6 +134,8 @@ type AccountAddressResponse = {
   defaultAddress?: "billing" | "shipping";
   error?: string;
 };
+
+type CheckoutValidationErrors = Partial<Record<keyof CheckoutCustomer, string>>;
 
 type RazorpayCheckoutOptions = {
   key: string;
@@ -164,6 +176,72 @@ const currencyFormatter = new Intl.NumberFormat("en-IN", {
   maximumFractionDigits: 0
 });
 
+const requiredCustomerFields: (keyof CheckoutCustomer)[] = [
+  "email",
+  "country",
+  "firstName",
+  "address1",
+  "city",
+  "state",
+  "pincode",
+  "phone"
+];
+
+const indianStates = [
+  { code: "AP", name: "Andhra Pradesh" },
+  { code: "AR", name: "Arunachal Pradesh" },
+  { code: "AS", name: "Assam" },
+  { code: "BR", name: "Bihar" },
+  { code: "CT", name: "Chhattisgarh" },
+  { code: "GA", name: "Goa" },
+  { code: "GJ", name: "Gujarat" },
+  { code: "HR", name: "Haryana" },
+  { code: "HP", name: "Himachal Pradesh" },
+  { code: "JH", name: "Jharkhand" },
+  { code: "KA", name: "Karnataka" },
+  { code: "KL", name: "Kerala" },
+  { code: "MP", name: "Madhya Pradesh" },
+  { code: "MH", name: "Maharashtra" },
+  { code: "MN", name: "Manipur" },
+  { code: "ML", name: "Meghalaya" },
+  { code: "MZ", name: "Mizoram" },
+  { code: "NL", name: "Nagaland" },
+  { code: "OD", name: "Odisha" },
+  { code: "PB", name: "Punjab" },
+  { code: "RJ", name: "Rajasthan" },
+  { code: "SK", name: "Sikkim" },
+  { code: "TN", name: "Tamil Nadu" },
+  { code: "TS", name: "Telangana" },
+  { code: "TR", name: "Tripura" },
+  { code: "UK", name: "Uttarakhand" },
+  { code: "UP", name: "Uttar Pradesh" },
+  { code: "WB", name: "West Bengal" },
+  { code: "AN", name: "Andaman and Nicobar Islands" },
+  { code: "CH", name: "Chandigarh" },
+  { code: "DN", name: "Dadra and Nagar Haveli" },
+  { code: "DD", name: "Daman and Diu" },
+  { code: "DL", name: "Delhi" },
+  { code: "JK", name: "Jammu and Kashmir" },
+  { code: "LA", name: "Ladakh" },
+  { code: "LD", name: "Lakshadweep" },
+  { code: "PY", name: "Puducherry" }
+];
+
+function normalizeIndianStateValue(value?: string) {
+  const normalized = String(value ?? "").trim();
+
+  if (!normalized) {
+    return "";
+  }
+
+  const upper = normalized.toUpperCase();
+  const matchedState = indianStates.find((state) => {
+    return state.code === upper || state.name.toUpperCase() === upper;
+  });
+
+  return matchedState?.code ?? normalized;
+}
+
 function readPrice(value: string) {
   const parsed = Number(value.replace(/[^0-9.]/g, ""));
   return Number.isFinite(parsed) ? parsed : 0;
@@ -171,6 +249,48 @@ function readPrice(value: string) {
 
 function getFormString(formData: FormData, key: string) {
   return String(formData.get(key) ?? "").trim();
+}
+
+function validateCheckoutField(key: keyof CheckoutCustomer, value: string) {
+  const trimmed = value.trim();
+
+  if (requiredCustomerFields.includes(key) && !trimmed) {
+    return "Required";
+  }
+
+  if (key === "email" && trimmed && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+    return "Invalid email";
+  }
+
+  if (key === "pincode" && trimmed && !/^\d{6}$/.test(trimmed)) {
+    return "Invalid PIN code";
+  }
+
+  if (key === "phone" && trimmed) {
+    const digits = trimmed.replace(/\D/g, "");
+
+    if (digits.length < 10 || digits.length > 15) {
+      return "Invalid phone";
+    }
+  }
+
+  if (key === "state" && trimmed && !indianStates.some((state) => state.code === trimmed)) {
+    return "Select state";
+  }
+
+  return "";
+}
+
+function validateCheckoutCustomer(customer: CheckoutCustomer) {
+  return (Object.keys(customer) as (keyof CheckoutCustomer)[]).reduce<CheckoutValidationErrors>((errors, key) => {
+    const error = validateCheckoutField(key, customer[key]);
+
+    if (error) {
+      errors[key] = error;
+    }
+
+    return errors;
+  }, {});
 }
 
 function getCheckoutItems(items: CheckoutPayload["items"]): CheckoutPayload["items"] {
@@ -262,7 +382,7 @@ function mapAddressToCheckoutCustomer(
     address1: address.address_1?.trim() || "",
     address2: address.address_2?.trim() || "",
     city: address.city?.trim() || "",
-    state: address.state?.trim() || "",
+    state: normalizeIndianStateValue(address.state),
     pincode: address.postcode?.trim() || ""
   };
 }
@@ -324,6 +444,7 @@ export default function CheckoutPage({ categories }: CheckoutPageProps) {
   const [selectedShippingId, setSelectedShippingId] = useState("");
   const [shippingLoading, setShippingLoading] = useState(false);
   const [shippingError, setShippingError] = useState("");
+  const [validationErrors, setValidationErrors] = useState<CheckoutValidationErrors>({});
 
   const discountAmount = Math.min(subtotal, appliedDiscount?.amount ?? 0);
   const selectedShipping = shippingOptions.find((option) => option.id === selectedShippingId) ?? shippingOptions[0];
@@ -419,6 +540,78 @@ export default function CheckoutPage({ categories }: CheckoutPageProps) {
   }, [complete]);
 
   useEffect(() => {
+    const pincode = customer.pincode.trim();
+
+    if (!/^\d{6}$/.test(pincode)) {
+      return;
+    }
+
+    const controller = new AbortController();
+
+    async function loadPincodeAddress() {
+      try {
+        const response = await fetch(`https://pincode-two.vercel.app/api/pincode/${encodeURIComponent(pincode)}`, {
+          signal: controller.signal
+        });
+        const data = (await response.json().catch(() => null)) as PincodeLookupResponse | null;
+
+        if (!response.ok || !data) {
+          return;
+        }
+
+        const nextCity = data.district?.trim() ?? "";
+        const nextState = normalizeIndianStateValue(data.state);
+        const nextCountry = data.country?.trim() || "India";
+
+        if (!nextCity && !nextState) {
+          return;
+        }
+
+        setCustomer((current) => {
+          if (current.pincode.trim() !== pincode) {
+            return current;
+          }
+
+          return {
+            ...current,
+            city: nextCity || current.city,
+            state: nextState || current.state,
+            country: nextCountry || current.country
+          };
+        });
+        setValidationErrors((current) => {
+          const next = { ...current };
+          const updatedFields: Partial<CheckoutCustomer> = {
+            city: nextCity,
+            state: nextState,
+            country: nextCountry
+          };
+
+          (Object.entries(updatedFields) as [keyof CheckoutCustomer, string][]).forEach(([key, value]) => {
+            const error = validateCheckoutField(key, value);
+
+            if (error) {
+              next[key] = error;
+            } else {
+              delete next[key];
+            }
+          });
+
+          return next;
+        });
+      } catch (error) {
+        if (!(error instanceof DOMException && error.name === "AbortError")) {
+          return;
+        }
+      }
+    }
+
+    void loadPincodeAddress();
+
+    return () => controller.abort();
+  }, [customer.pincode]);
+
+  useEffect(() => {
     if (!authUser || items.length === 0) {
       setShippingOptions([]);
       setSelectedShippingId("");
@@ -484,8 +677,26 @@ export default function CheckoutPage({ categories }: CheckoutPageProps) {
     return () => controller.abort();
   }, [appliedDiscount?.code, authUser, customer, items, shippingAddressReady]);
 
+  const hasFieldError = (key: keyof CheckoutCustomer) => Boolean(validationErrors[key]);
+
   const updateCustomerField = (key: keyof CheckoutCustomer, value: string) => {
     setCustomer((current) => ({ ...current, [key]: value }));
+    setValidationErrors((current) => {
+      if (!current[key]) {
+        return current;
+      }
+
+      const error = validateCheckoutField(key, value);
+      const next = { ...current };
+
+      if (error) {
+        next[key] = error;
+      } else {
+        delete next[key];
+      }
+
+      return next;
+    });
   };
 
   const handleAuthClose = useCallback(() => {
@@ -506,7 +717,8 @@ export default function CheckoutPage({ categories }: CheckoutPageProps) {
       return;
     }
 
-    const formData = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const formData = new FormData(form);
     const checkoutPayload = buildCheckoutPayload(
       formData,
       items,
@@ -515,8 +727,29 @@ export default function CheckoutPage({ categories }: CheckoutPageProps) {
     );
     const { firstName, lastName, email, phone } = checkoutPayload.customer;
     const name = `${firstName} ${lastName}`.trim();
+    const nextValidationErrors = validateCheckoutCustomer(checkoutPayload.customer);
+    const firstInvalidField = requiredCustomerFields.find((field) => nextValidationErrors[field]);
+
+    setValidationErrors(nextValidationErrors);
 
     setPaymentError("");
+
+    if (firstInvalidField) {
+      form.querySelector<HTMLInputElement | HTMLSelectElement>(`[name="${firstInvalidField}"]`)?.focus();
+      setPaymentError("Please complete the highlighted fields.");
+      return;
+    }
+
+    if (shippingLoading) {
+      setPaymentError("Shipping is still calculating. Please try again in a moment.");
+      return;
+    }
+
+    if (!selectedShipping) {
+      setPaymentError(shippingError || "Shipping is not available for this address.");
+      return;
+    }
+
     setPaymentProcessing(true);
 
     try {
@@ -696,7 +929,7 @@ export default function CheckoutPage({ categories }: CheckoutPageProps) {
                 </button>
               </section>
             ) : itemCount > 0 ? (
-              <form id="checkout-form" className="checkout-form" onSubmit={handleSubmit}>
+              <form id="checkout-form" className="checkout-form" onSubmit={handleSubmit} noValidate>
                 <section className="checkout-panel">
                   <div className="checkout-grid">
                     <div>
@@ -708,6 +941,7 @@ export default function CheckoutPage({ categories }: CheckoutPageProps) {
                         value={customer.email}
                         onChange={(event) => updateCustomerField("email", event.target.value)}
                         autoComplete="email"
+                        aria-invalid={hasFieldError("email")}
                         required
                       />
                     </div>
@@ -732,6 +966,7 @@ export default function CheckoutPage({ categories }: CheckoutPageProps) {
                         name="country"
                         value={customer.country}
                         onChange={(event) => updateCustomerField("country", event.target.value)}
+                        aria-invalid={hasFieldError("country")}
                         required
                       >
                         <option>India</option>
@@ -747,6 +982,7 @@ export default function CheckoutPage({ categories }: CheckoutPageProps) {
                         type="text"
                         value={customer.firstName}
                         onChange={(event) => updateCustomerField("firstName", event.target.value)}
+                        aria-invalid={hasFieldError("firstName")}
                         required
                       />
                     </div>
@@ -758,6 +994,7 @@ export default function CheckoutPage({ categories }: CheckoutPageProps) {
                         type="text"
                         value={customer.lastName}
                         onChange={(event) => updateCustomerField("lastName", event.target.value)}
+                        aria-invalid={hasFieldError("lastName")}
                       />
                     </div>
                   </div>
@@ -770,6 +1007,7 @@ export default function CheckoutPage({ categories }: CheckoutPageProps) {
                         type="text"
                         value={customer.address1}
                         onChange={(event) => updateCustomerField("address1", event.target.value)}
+                        aria-invalid={hasFieldError("address1")}
                         required
                       />
                     </div>
@@ -781,32 +1019,11 @@ export default function CheckoutPage({ categories }: CheckoutPageProps) {
                         type="text"
                         value={customer.address2}
                         onChange={(event) => updateCustomerField("address2", event.target.value)}
+                        aria-invalid={hasFieldError("address2")}
                       />
                     </div>
                   </div>
                   <div className="checkout-grid three-up">
-                    <div>
-                      <RequiredLabel htmlFor="city">City</RequiredLabel>
-                      <input
-                        id="city"
-                        name="city"
-                        type="text"
-                        value={customer.city}
-                        onChange={(event) => updateCustomerField("city", event.target.value)}
-                        required
-                      />
-                    </div>
-                    <div>
-                      <RequiredLabel htmlFor="state">State</RequiredLabel>
-                      <input
-                        id="state"
-                        name="state"
-                        type="text"
-                        value={customer.state}
-                        onChange={(event) => updateCustomerField("state", event.target.value)}
-                        required
-                      />
-                    </div>
                     <div>
                       <RequiredLabel htmlFor="pincode">PIN code</RequiredLabel>
                       <input
@@ -815,8 +1032,41 @@ export default function CheckoutPage({ categories }: CheckoutPageProps) {
                         type="text"
                         value={customer.pincode}
                         onChange={(event) => updateCustomerField("pincode", event.target.value)}
+                        aria-invalid={hasFieldError("pincode")}
+                        inputMode="numeric"
+                        maxLength={6}
                         required
                       />
+                    </div>
+                    <div>
+                      <RequiredLabel htmlFor="city">City</RequiredLabel>
+                      <input
+                        id="city"
+                        name="city"
+                        type="text"
+                        value={customer.city}
+                        onChange={(event) => updateCustomerField("city", event.target.value)}
+                        aria-invalid={hasFieldError("city")}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <RequiredLabel htmlFor="state">State</RequiredLabel>
+                      <select
+                        id="state"
+                        name="state"
+                        value={normalizeIndianStateValue(customer.state)}
+                        onChange={(event) => updateCustomerField("state", event.target.value)}
+                        aria-invalid={hasFieldError("state")}
+                        required
+                      >
+                        <option value="">Select state</option>
+                        {indianStates.map((state) => (
+                          <option key={state.code} value={state.code}>
+                            {state.name}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                   </div>
                   <div className="checkout-grid">
@@ -828,6 +1078,7 @@ export default function CheckoutPage({ categories }: CheckoutPageProps) {
                         type="tel"
                         value={customer.phone}
                         onChange={(event) => updateCustomerField("phone", event.target.value)}
+                        aria-invalid={hasFieldError("phone")}
                         required
                       />
                     </div>
@@ -967,7 +1218,6 @@ export default function CheckoutPage({ categories }: CheckoutPageProps) {
                   className="checkout-submit"
                   type="submit"
                   form="checkout-form"
-                  disabled={paymentProcessing || shippingLoading || !selectedShipping}
                 >
                   <LockKeyhole size={16} aria-hidden="true" />
                   {paymentProcessing ? "Opening Razorpay..." : "Pay securely with Razorpay"}

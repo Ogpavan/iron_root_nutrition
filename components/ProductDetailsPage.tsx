@@ -580,7 +580,7 @@ export default function ProductDetailsPage({
               variants={detailCopyItem}
               transition={{ duration: 0.52, ease: "easeOut" }}
             >
-              <li>Free delivery on orders over ₹999</li>
+              <li>Free delivery on orders over ₹3,500</li>
               <li>14-Day return policy</li>
             </motion.ul>
 

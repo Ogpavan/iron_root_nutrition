@@ -7831,6 +7831,12 @@ h6 {
   box-shadow: 0 0 0 2px rgba(106, 155, 0, 0.16);
 }
 
+.shopify-checkout .checkout-grid input[aria-invalid="true"],
+.shopify-checkout .checkout-grid select[aria-invalid="true"] {
+  border-color: #d22727;
+  box-shadow: 0 0 0 2px rgba(210, 39, 39, 0.14);
+}
+
 .checkout-checkline {
   display: flex;
   align-items: center;
