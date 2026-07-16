@@ -1,4 +1,4 @@
-import { flavourTiles, products as fallbackProducts, type HomeProduct } from "@/lib/home-data";
+import { flavourTiles, products as fallbackProducts, type HomeProduct, type ProductPackage } from "@/lib/home-data";
 
 type WooImage = {
   src?: string;
@@ -49,6 +49,12 @@ type WooProduct = {
   description?: string;
   short_description?: string;
   stock_status?: string;
+  weight?: string;
+  dimensions?: {
+    length?: string;
+    width?: string;
+    height?: string;
+  };
   images?: WooImage[];
   categories?: WooCategory[];
   attributes?: WooProductAttribute[];
@@ -67,6 +73,12 @@ type WooProductVariation = {
   regular_price?: string;
   price_html?: string;
   stock_status?: string;
+  weight?: string;
+  dimensions?: {
+    length?: string;
+    width?: string;
+    height?: string;
+  };
   image?: WooImage;
   attributes?: WooVariationAttribute[];
 };
@@ -115,78 +127,6 @@ const currencyFormatter = new Intl.NumberFormat("en-IN", {
   maximumFractionDigits: 0
 });
 
-function normalizeWooPriceAmount(amount: number) {
-  if (amount > 0 && amount < 10) {
-    return amount * 1000;
-  }
-
-  return amount;
-}
-type ProductPriceContext = {
-  name?: string;
-  slug?: string;
-  sku?: string;
-  attributes?: {
-    name?: string;
-    option?: string;
-  }[];
-};
-
-type ProductPriceOverride = {
-  aliases: string[];
-  sizeTokens?: string[];
-  rate: number;
-  mrp: number;
-};
-
-const productPriceOverrides: ProductPriceOverride[] = [
-  { aliases: ["pro fusion", "profusion"], rate: 5249, mrp: 6999 },
-  { aliases: ["myofuel", "myo fuel"], sizeTokens: ["2kg", "2 kg"], rate: 6374, mrp: 8499 },
-  { aliases: ["big build", "weight gainer"], sizeTokens: ["3kg", "3 kg"], rate: 2999, mrp: 3999 },
-  { aliases: ["titan meal"], sizeTokens: ["3kg", "3 kg"], rate: 3749, mrp: 4999 },
-  { aliases: ["alpha grid", "alphagrid"], rate: 1874, mrp: 2499 },
-  { aliases: ["pre shock", "preshock"], rate: 1724, mrp: 2299 },
-  { aliases: ["crealift", "creatine"], sizeTokens: ["122gm", "122 gm", "33 servings"], rate: 561, mrp: 749 },
-  { aliases: ["crealift", "creatine"], sizeTokens: ["307gm", "307 gm", "85 servings"], rate: 1124, mrp: 1499 },
-  { aliases: ["intracharge", "bcaa"], rate: 1499, mrp: 1999 },
-  { aliases: ["glutabuild", "gluta build", "glutamine"], rate: 1200, mrp: 1600 }
-];
-
-function normalizePricingText(value?: string) {
-  return String(value ?? "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "");
-}
-
-function includesPricingToken(value: string, tokens: string[]) {
-  return tokens.some((token) => value.includes(normalizePricingText(token)));
-}
-
-function getPriceOverride(context?: ProductPriceContext) {
-  if (!context) {
-    return undefined;
-  }
-
-  const attributeText = normalizePricingText(
-    context.attributes?.map((attribute) => `${attribute.name ?? ""} ${attribute.option ?? ""}`).join(" ")
-  );
-  const productText = normalizePricingText(`${context.name ?? ""} ${context.slug ?? ""} ${context.sku ?? ""}`);
-  const combinedText = `${productText}${attributeText}`;
-  const hasAttributes = Boolean(context.attributes?.length);
-
-  return productPriceOverrides.find((override) => {
-    if (!includesPricingToken(combinedText, override.aliases)) {
-      return false;
-    }
-
-    if (!override.sizeTokens?.length) {
-      return true;
-    }
-
-    return !hasAttributes || includesPricingToken(attributeText, override.sizeTokens);
-  });
-}
-
 function cleanHtml(value?: string) {
   if (!value) {
     return "";
@@ -201,18 +141,12 @@ function cleanHtml(value?: string) {
     .trim();
 }
 
-function formatPrice(product: PriceLike, context?: ProductPriceContext) {
-  const override = getPriceOverride(context);
-
-  if (override) {
-    return currencyFormatter.format(override.rate);
-  }
-
+function formatPrice(product: PriceLike) {
   if (product.price) {
     const amount = Number(product.price);
 
     if (Number.isFinite(amount)) {
-      return currencyFormatter.format(normalizeWooPriceAmount(amount));
+      return currencyFormatter.format(amount);
     }
 
     return product.price;
@@ -221,23 +155,16 @@ function formatPrice(product: PriceLike, context?: ProductPriceContext) {
   return cleanHtml(product.price_html) || "View product";
 }
 
-function formatMrp(product: PriceLike, context?: ProductPriceContext) {
-  const override = getPriceOverride(context);
-
-  if (override && override.mrp > override.rate) {
-    return currencyFormatter.format(override.mrp);
-  }
-
+function formatMrp(product: PriceLike) {
   if (product.regular_price) {
     const mrp = Number(product.regular_price);
     const price = Number(product.price);
 
     if (Number.isFinite(mrp)) {
-      const normalizedMrp = normalizeWooPriceAmount(mrp);
-      const normalizedPrice = Number.isFinite(price) ? normalizeWooPriceAmount(price) : 0;
+      const normalizedPrice = Number.isFinite(price) ? price : 0;
 
-      if (normalizedMrp > normalizedPrice) {
-        return currencyFormatter.format(normalizedMrp);
+      if (mrp > normalizedPrice) {
+        return currencyFormatter.format(mrp);
       }
     }
   }
@@ -268,6 +195,41 @@ function getMetaString(product: WooProduct, keys: string[]) {
   }
 
   return undefined;
+}
+
+function readPositiveNumber(value?: string) {
+  const parsed = Number(String(value ?? "").replace(/[^0-9.]/g, ""));
+
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
+function mapProductPackage(source: {
+  weight?: string;
+  dimensions?: {
+    length?: string;
+    width?: string;
+    height?: string;
+  };
+}): ProductPackage | undefined {
+  const weight = readPositiveNumber(source.weight);
+  const length = readPositiveNumber(source.dimensions?.length);
+  const width = readPositiveNumber(source.dimensions?.width);
+  const height = readPositiveNumber(source.dimensions?.height);
+
+  if (!weight || !length || !width || !height) {
+    return undefined;
+  }
+
+  return {
+    weight,
+    weightUnit: "kg",
+    dimensions: {
+      length,
+      width,
+      height,
+      unit: "cm"
+    }
+  };
 }
 
 function getWooHeaders(consumerKey: string, consumerSecret: string) {
@@ -382,20 +344,11 @@ async function getWooProductVariations(
       mappedVariations.push({
         id: variation.id,
         sku: variation.sku,
-        price: formatPrice(variation, {
-          name: product.name,
-          slug: product.slug,
-          sku: variation.sku,
-          attributes: variation.attributes
-        }),
-        mrp: formatMrp(variation, {
-          name: product.name,
-          slug: product.slug,
-          sku: variation.sku,
-          attributes: variation.attributes
-        }),
+        price: formatPrice(variation),
+        mrp: formatMrp(variation),
         image: variation.image?.src,
         stockStatus: variation.stock_status,
+        package: mapProductPackage(variation),
         attributes: mapVariationAttributes(variation)
       });
 
@@ -410,6 +363,7 @@ function mapProduct(product: WooProduct, index: number, variations: MappedProduc
   const fallback = fallbackProducts[index % fallbackProducts.length];
   const slug = product.slug || slugify(product.name || fallback.name);
   const galleryImages = product.images?.map((image) => image.src).filter(Boolean) as string[] | undefined;
+  const image = galleryImages?.[0];
   const productCategories = product.categories?.filter((category) => category.name || category.slug) ?? [];
   const categoryNames = productCategories
     .map((category) => category.name)
@@ -434,18 +388,10 @@ function mapProduct(product: WooProduct, index: number, variations: MappedProduc
     slug,
     name: product.name || fallback.name,
     tag: categoryNames[0] || "IronRoot",
-    price: formatPrice(product, {
-      name: product.name,
-      slug,
-      sku: product.sku
-    }),
-    mrp: formatMrp(product, {
-      name: product.name,
-      slug,
-      sku: product.sku
-    }),
-    image: product.images?.[0]?.src || fallback.image,
-    hoverImage: product.images && product.images.length > 1 ? product.images[product.images.length - 1]?.src : undefined,
+    price: formatPrice(product),
+    mrp: formatMrp(product),
+    image: image ?? "",
+    hoverImage: galleryImages && galleryImages.length > 1 ? galleryImages[galleryImages.length - 1] : undefined,
     galleryImages,
     categoryNames,
     categorySlugs,
@@ -453,6 +399,7 @@ function mapProduct(product: WooProduct, index: number, variations: MappedProduc
     description: cleanHtml(product.description),
     shortDescription: cleanHtml(product.short_description),
     stockStatus: product.stock_status,
+    package: mapProductPackage(product),
     attributes: mapProductAttributes(product),
     defaultAttributes: mapDefaultAttributes(product),
     variations: variations.length > 0 ? variations : undefined,
@@ -461,26 +408,8 @@ function mapProduct(product: WooProduct, index: number, variations: MappedProduc
   };
 }
 
-function mapFallbackProduct(product: HomeProduct, index: number): HomeProduct {
-  const slug = product.slug || slugify(product.name);
-  const categoryNames = product.categoryNames?.length ? product.categoryNames : [product.tag];
-  const categorySlugs = product.categorySlugs?.length ? product.categorySlugs : categoryNames.map(slugify);
-
-  return {
-    ...product,
-    slug,
-    categoryNames,
-    categorySlugs,
-    galleryImages: product.galleryImages || [product.image, product.hoverImage].filter(Boolean) as string[],
-    descriptionHtml: product.descriptionHtml,
-    tone: product.tone || productTones[index % productTones.length],
-    href: `/products/${slug}`
-  };
-}
-
 async function getWooProducts(
   limit: number,
-  fallback: HomeProduct[],
   options: ProductFetchOptions = {}
 ): Promise<HomeProduct[]> {
   const siteUrl = process.env.WORDPRESS_SITE_URL;
@@ -488,7 +417,7 @@ async function getWooProducts(
   const consumerSecret = process.env.WOOCOMMERCE_CONSUMER_SECRET;
 
   if (!siteUrl || !consumerKey || !consumerSecret) {
-    return fallback.map(mapFallbackProduct);
+    return [];
   }
 
   const endpoint = new URL("/wp-json/wc/v3/products", siteUrl);
@@ -504,18 +433,18 @@ async function getWooProducts(
     });
 
     if (!response.ok) {
-      return fallback.map(mapFallbackProduct);
+      return [];
     }
 
     const data: unknown = await response.json();
 
     if (!Array.isArray(data)) {
-      return fallback.map(mapFallbackProduct);
+      return [];
     }
 
     const wooProducts = data as WooProduct[];
     const credentials = { siteUrl, consumerKey, consumerSecret };
-    const products = await Promise.all(
+    const products = (await Promise.all(
       wooProducts.map(async (product, index) => {
         const variations = options.includeVariations
           ? await getWooProductVariations(product, credentials)
@@ -523,20 +452,20 @@ async function getWooProducts(
 
         return mapProduct(product, index, variations);
       })
-    );
+    )).filter((product) => product.image);
 
-    return products.length > 0 ? products : fallback.map(mapFallbackProduct);
+    return products;
   } catch {
-    return fallback.map(mapFallbackProduct);
+    return [];
   }
 }
 
 export async function getHomeProducts(limit = 5): Promise<HomeProduct[]> {
-  return getWooProducts(limit, fallbackProducts.slice(0, limit));
+  return getWooProducts(limit);
 }
 
 export async function getAllProducts(limit = 48, options?: ProductFetchOptions): Promise<HomeProduct[]> {
-  return getWooProducts(limit, fallbackProducts, options);
+  return getWooProducts(limit, options);
 }
 
 function mapProductReview(review: WooProductReview, index: number): ProductReview {

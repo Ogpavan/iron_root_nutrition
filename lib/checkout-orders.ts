@@ -1,6 +1,8 @@
 import { getAllProducts } from "@/lib/woocommerce";
 import { calculateDiscountedCheckoutAmountPaise } from "@/lib/checkout-discounts";
+import { calculateCheckoutPackageSummary } from "@/lib/checkout-packages";
 import type { CheckoutShippingOption } from "@/lib/checkout-shipping";
+import { createXpressBeesShipment, type XpressBeesShipment } from "@/lib/xpressbees";
 
 export type CheckoutOrderItem = {
   id?: number | string;
@@ -44,6 +46,11 @@ type WooOrderResponse = {
   message?: string;
 };
 
+type WooOrderMeta = {
+  key: string;
+  value: string;
+};
+
 function getQuantity(value: unknown) {
   return typeof value === "number" && Number.isFinite(value)
     ? Math.max(1, Math.min(99, Math.floor(value)))
@@ -79,6 +86,36 @@ function readPrice(value: string) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function getCustomerName(customer: CheckoutCustomer) {
+  return `${customer.firstName} ${customer.lastName}`.trim() || customer.email.trim();
+}
+
+function formatXpressBeesError(error: unknown) {
+  return error instanceof Error ? error.message : "Could not create XpressBees shipment.";
+}
+
+async function updateWooOrderMeta(orderId: number, metaData: WooOrderMeta[]) {
+  if (metaData.length === 0) {
+    return;
+  }
+
+  const { siteUrl, consumerKey, consumerSecret } = getWooCredentials();
+  const endpoint = new URL(`/wp-json/wc/v3/orders/${orderId}`, siteUrl);
+  const response = await fetch(endpoint, {
+    method: "PUT",
+    headers: {
+      Accept: "application/json",
+      Authorization: `Basic ${Buffer.from(`${consumerKey}:${consumerSecret}`).toString("base64")}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ meta_data: metaData })
+  });
+
+  if (!response.ok) {
+    throw new Error("Could not update WooCommerce order metadata.");
+  }
+}
+
 export async function calculateCheckoutAmountPaise(items: CheckoutOrderItem[]) {
   return calculateCheckoutAmountWithDiscountPaise(items);
 }
@@ -107,6 +144,12 @@ export async function createWooCommerceCheckoutOrder({
 
   const { siteUrl, consumerKey, consumerSecret } = getWooCredentials();
   const products = await getAllProducts(100, { includeVariations: true });
+  const xpressBeesOrderItems: {
+    name: string;
+    quantity: number;
+    price: number;
+    sku?: string;
+  }[] = [];
   const lineItems = items.map((item) => {
     const product = products.find((candidate) => {
       return (
@@ -134,6 +177,12 @@ export async function createWooCommerceCheckoutOrder({
     const quantity = getQuantity(item.quantity);
     const unitPrice = readPrice(variation?.price ?? product.price);
     const lineTotal = (unitPrice * quantity).toFixed(2);
+    xpressBeesOrderItems.push({
+      name: item.name ?? product.name,
+      quantity,
+      price: unitPrice,
+      sku: variation?.sku ?? product.sku
+    });
 
     return {
       product_id: productId,
@@ -145,6 +194,8 @@ export async function createWooCommerceCheckoutOrder({
   });
   const country = normalizeCountry(customer.country || "IN");
   const email = getEmail(customer);
+  const packageSummary = shipping?.packageSummary ?? await calculateCheckoutPackageSummary(items);
+  const pricing = await calculateDiscountedCheckoutAmountPaise(items, discountCode);
 
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     throw new Error("A valid email address is required to place an order.");
@@ -182,6 +233,34 @@ export async function createWooCommerceCheckoutOrder({
     coupon_lines: discountCode ? [{ code: discountCode.trim() }] : undefined,
     meta_data: [
       ...(discountCode ? [{ key: "_ironroot_discount_code", value: discountCode.trim() }] : []),
+      ...(shipping
+        ? [
+            { key: "_ironroot_shipping_method", value: shipping.title },
+            { key: "_ironroot_shipping_charge", value: shipping.total.toFixed(2) }
+          ]
+        : []),
+      ...(shipping?.xpressBees
+        ? [
+            { key: "_xpressbees_charge", value: String(shipping.xpressBees.charge ?? shipping.total) },
+            ...(shipping.xpressBees.requestId
+              ? [{ key: "_xpressbees_request_id", value: shipping.xpressBees.requestId }]
+              : []),
+            ...(shipping.xpressBees.shipmentId
+              ? [{ key: "_xpressbees_shipment_id", value: shipping.xpressBees.shipmentId }]
+              : []),
+            ...(shipping.xpressBees.awbNumber
+              ? [{ key: "_xpressbees_awb_number", value: shipping.xpressBees.awbNumber }]
+              : [])
+          ]
+        : []),
+      { key: "_ironroot_package_weight_kg", value: String(packageSummary.totalActualWeightKg) },
+      { key: "_ironroot_package_volumetric_weight_kg", value: String(packageSummary.volumetricWeightKg) },
+      { key: "_ironroot_package_chargeable_weight_kg", value: String(packageSummary.chargeableWeightKg) },
+      {
+        key: "_ironroot_package_dimensions_cm",
+        value: `${packageSummary.lengthCm}x${packageSummary.widthCm}x${packageSummary.heightCm}`
+      },
+      { key: "_ironroot_package_lines", value: JSON.stringify(packageSummary.lines) },
       ...(razorpayOrderId ? [{ key: "_razorpay_order_id", value: razorpayOrderId }] : []),
       ...(razorpayPaymentId ? [{ key: "_razorpay_payment_id", value: razorpayPaymentId }] : [])
     ]
@@ -202,9 +281,62 @@ export async function createWooCommerceCheckoutOrder({
     throw new Error(data.message || "Could not create WooCommerce order.");
   }
 
+  let xpressBees: XpressBeesShipment | undefined;
+  let xpressBeesError: string | undefined;
+
+  try {
+    const shippingCharge = shipping?.total ?? 0;
+    const codCharges = isRazorpay ? 0 : shipping?.xpressBees?.codCharges ?? 0;
+    const orderAmount = pricing.total + shippingCharge + codCharges;
+    xpressBees = await createXpressBeesShipment({
+      orderNumber: data.number ? `#${data.number}` : `#${data.id}`,
+      paymentType: isRazorpay ? "prepaid" : "cod",
+      orderAmount,
+      collectableAmount: isRazorpay ? 0 : orderAmount,
+      shippingCharges: shippingCharge,
+      discount: pricing.discount?.amount ?? 0,
+      codCharges,
+      packageWeightGrams: packageSummary.totalActualWeightKg * 1000,
+      packageLengthCm: packageSummary.lengthCm,
+      packageBreadthCm: packageSummary.widthCm,
+      packageHeightCm: packageSummary.heightCm,
+      consignee: {
+        name: getCustomerName(customer),
+        address: customer.address1.trim(),
+        address2: customer.address2.trim(),
+        city: customer.city.trim(),
+        state: customer.state.trim(),
+        pincode: customer.pincode.trim(),
+        phone: getPhone(customer)
+      },
+      orderItems: xpressBeesOrderItems,
+      courierId: shipping?.xpressBees?.courierId
+    });
+
+    await updateWooOrderMeta(data.id, [
+      ...(xpressBees.orderId ? [{ key: "_xpressbees_order_id", value: xpressBees.orderId }] : []),
+      ...(xpressBees.shipmentId ? [{ key: "_xpressbees_shipment_id", value: xpressBees.shipmentId }] : []),
+      ...(xpressBees.awbNumber ? [{ key: "_xpressbees_awb_number", value: xpressBees.awbNumber }] : []),
+      ...(xpressBees.courierId ? [{ key: "_xpressbees_courier_id", value: xpressBees.courierId }] : []),
+      ...(xpressBees.courierName ? [{ key: "_xpressbees_courier_name", value: xpressBees.courierName }] : []),
+      ...(xpressBees.status ? [{ key: "_xpressbees_status", value: xpressBees.status }] : []),
+      ...(xpressBees.label ? [{ key: "_xpressbees_label", value: xpressBees.label }] : []),
+      { key: "_xpressbees_synced_at", value: new Date().toISOString() }
+    ]);
+  } catch (error) {
+    xpressBeesError = formatXpressBeesError(error);
+
+    await updateWooOrderMeta(data.id, [
+      { key: "_xpressbees_error", value: xpressBeesError },
+      { key: "_xpressbees_sync_failed_at", value: new Date().toISOString() }
+    ]).catch(() => undefined);
+  }
+
   return {
     id: data.id,
     number: data.number,
-    status: data.status
+    status: data.status,
+    xpressBees,
+    xpressBeesError
   };
 }

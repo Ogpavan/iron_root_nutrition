@@ -1,5 +1,7 @@
 import type { CheckoutCustomer, CheckoutOrderItem } from "@/lib/checkout-orders";
 import { calculateDiscountedCheckoutAmountPaise } from "@/lib/checkout-discounts";
+import { calculateCheckoutPackageSummary, type CheckoutPackageSummary } from "@/lib/checkout-packages";
+import { getXpressBeesServiceabilityRates } from "@/lib/xpressbees";
 
 export type CheckoutShippingOption = {
   id: string;
@@ -7,6 +9,18 @@ export type CheckoutShippingOption = {
   instanceId?: number;
   title: string;
   total: number;
+  packageSummary?: CheckoutPackageSummary;
+  xpressBees?: {
+    charge?: number;
+    courierId?: string;
+    courierName?: string;
+    freightCharges?: number;
+    codCharges?: number;
+    chargeableWeightGrams?: number;
+    requestId?: string;
+    shipmentId?: string;
+    awbNumber?: string;
+  };
 };
 
 type WooShippingZone = {
@@ -243,6 +257,48 @@ export async function getCheckoutShippingOptions(
   discountCode?: string
 ) {
   const pricing = await calculateDiscountedCheckoutAmountPaise(items, discountCode);
+  const packageSummary = await calculateCheckoutPackageSummary(items);
+  const rates = await getXpressBeesServiceabilityRates({
+    destinationPincode: customer.pincode,
+    paymentType: "prepaid",
+    orderAmount: pricing.total,
+    weightGrams: packageSummary.totalActualWeightKg * 1000,
+    lengthCm: packageSummary.lengthCm,
+    breadthCm: packageSummary.widthCm,
+    heightCm: packageSummary.heightCm
+  });
+
+  if (rates.length === 0) {
+    throw new Error("XpressBees is not serviceable for this address.");
+  }
+
+  return rates
+    .map((rate) => ({
+      id: `xpressbees:${rate.courierId}`,
+      methodId: "xpressbees",
+      instanceId: Number(rate.courierId),
+      title: rate.courierName,
+      total: rate.totalCharges,
+      packageSummary,
+      xpressBees: {
+        charge: rate.totalCharges,
+        courierId: rate.courierId,
+        courierName: rate.courierName,
+        freightCharges: rate.freightCharges,
+        codCharges: rate.codCharges,
+        chargeableWeightGrams: rate.chargeableWeightGrams
+      }
+    }))
+    .sort((first, second) => first.total - second.total);
+}
+
+async function getWooCheckoutShippingOptions(
+  items: CheckoutOrderItem[],
+  customer: CheckoutCustomer,
+  discountCode?: string
+) {
+  const pricing = await calculateDiscountedCheckoutAmountPaise(items, discountCode);
+  const packageSummary = await calculateCheckoutPackageSummary(items);
   const zones = await getShippingZones();
   const specificZones = zones.filter((zone) => zone.id !== 0);
   const fallbackZone = zones.find((zone) => zone.id === 0) ?? { id: 0, name: "Everywhere" };
@@ -256,10 +312,11 @@ export async function getCheckoutShippingOptions(
     }
 
     const options = await getZoneShippingOptions(zone.id, pricing.total);
-    allOptions.push(...options);
+    const packagedOptions = options.map((option) => ({ ...option, packageSummary }));
+    allOptions.push(...packagedOptions);
 
-    if (options.length > 0) {
-      return options;
+    if (packagedOptions.length > 0) {
+      return packagedOptions;
     }
   }
 
@@ -269,10 +326,11 @@ export async function getCheckoutShippingOptions(
 
   if (zoneMatches(fallbackLocations, customer)) {
     const options = await getZoneShippingOptions(fallbackZone.id, pricing.total);
-    allOptions.push(...options);
+    const packagedOptions = options.map((option) => ({ ...option, packageSummary }));
+    allOptions.push(...packagedOptions);
 
-    if (options.length > 0) {
-      return options;
+    if (packagedOptions.length > 0) {
+      return packagedOptions;
     }
   }
 

@@ -18,6 +18,19 @@ export type ProductVariationAttribute = {
   option: string;
 };
 
+export type ProductDimensions = {
+  length: number;
+  width: number;
+  height: number;
+  unit: "cm";
+};
+
+export type ProductPackage = {
+  weight: number;
+  weightUnit: "kg";
+  dimensions: ProductDimensions;
+};
+
 export type ProductVariation = {
   id: number;
   sku?: string;
@@ -25,6 +38,7 @@ export type ProductVariation = {
   mrp?: string;
   image?: string;
   stockStatus?: string;
+  package?: ProductPackage;
   attributes: ProductVariationAttribute[];
 };
 
@@ -46,6 +60,7 @@ export type HomeProduct = {
   description?: string;
   shortDescription?: string;
   stockStatus?: string;
+  package?: ProductPackage;
   attributes?: ProductAttribute[];
   defaultAttributes?: ProductVariationAttribute[];
   variations?: ProductVariation[];
