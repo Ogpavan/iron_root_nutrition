@@ -126,11 +126,17 @@ function getDeliveryDetail(order: AccountOrder) {
     return "We will update this status as it moves.";
   }
 
-  if (order.delivery.message && order.delivery.location) {
-    return `${order.delivery.message} · ${order.delivery.location}`;
+  const deliveryMessage = order.delivery.message?.trim();
+
+  if (deliveryMessage?.toLowerCase() === "data received") {
+    return order.delivery.location || "Tracking synced from XpressBees.";
   }
 
-  return order.delivery.message || order.delivery.location || "Tracking synced from XpressBees.";
+  if (deliveryMessage && order.delivery.location) {
+    return `${deliveryMessage} · ${order.delivery.location}`;
+  }
+
+  return deliveryMessage || order.delivery.location || "Tracking synced from XpressBees.";
 }
 
 function getStatusHeading(order: AccountOrder) {
@@ -416,33 +422,51 @@ export default function AccountOrdersPage({ categories }: AccountOrdersPageProps
                                     {getStatusHeading(order)}
                                   </strong>
                                   <em>{getStatusDetail(order)}</em>
-                                  <a href="/all-products">
-                                    <RotateCcw size={15} aria-hidden="true" />
-                                    Buy this product again
-                                  </a>
                                 </span>
                               </div>
                             ))}
                           </div>
 
                           <footer className="orders-list-footer">
-                            <span>
-                              Order <strong>#{order.number}</strong>
+                            <span className="orders-list-meta orders-list-order-number">
+                              <small>Order</small>
+                              <strong>#{order.number}</strong>
                             </span>
-                            <span>Placed {formatOrderDate(order.dateCreated)}</span>
-                            <span>{itemCount} item{itemCount === 1 ? "" : "s"}</span>
-                            <span>Total <strong>{order.total}</strong></span>
-                            <span>{order.paymentMethod || "Online payment"}</span>
+                            <span className="orders-list-meta">
+                              <small>Placed</small>
+                              {formatOrderDate(order.dateCreated)}
+                            </span>
+                            <span className="orders-list-meta">
+                              <small>Items</small>
+                              {itemCount} item{itemCount === 1 ? "" : "s"}
+                            </span>
+                            <span className="orders-list-meta">
+                              <small>Total</small>
+                              <strong>{order.total}</strong>
+                            </span>
+                            <span className="orders-list-meta orders-list-payment">
+                              <small>Payment</small>
+                              {order.paymentMethod || "Online payment"}
+                            </span>
                             {order.delivery?.awbNumber ? (
-                              <span>
+                              <span className="orders-list-meta orders-list-tracking">
                                 <Truck size={14} aria-hidden="true" />
-                                {order.delivery.courierName || "Courier"}: {order.delivery.awbNumber}
+                                <span>
+                                  <small>Tracking</small>
+                                  {order.delivery.courierName || "Courier"}: {order.delivery.awbNumber}
+                                </span>
                               </span>
                             ) : null}
-                            <a href="/support#contact-form">
-                              <Headphones size={15} aria-hidden="true" />
-                              Need help?
-                            </a>
+                            <span className="orders-list-actions">
+                              <a href="/all-products">
+                                <RotateCcw size={15} aria-hidden="true" />
+                                Buy again
+                              </a>
+                              <a href="/support#contact-form">
+                                <Headphones size={15} aria-hidden="true" />
+                                Need help?
+                              </a>
+                            </span>
                           </footer>
                         </article>
                       );
