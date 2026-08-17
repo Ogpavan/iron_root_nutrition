@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import AuthenticityPage from "@/components/AuthenticityPage";
-import { getAllProducts, getWooCategories } from "@/lib/woocommerce";
+import { getWooCategories } from "@/lib/woocommerce";
 
 export const metadata: Metadata = {
   title: "Authenticity",
@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 };
 
 export default async function Page() {
-  const [products, categories] = await Promise.all([getAllProducts(), getWooCategories()]);
+  const categories = await getWooCategories();
 
-  return <AuthenticityPage products={products} categories={categories} />;
+  return <AuthenticityPage categories={categories} />;
 }
