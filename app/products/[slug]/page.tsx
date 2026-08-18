@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import ProductDetailsPage from "@/components/ProductDetailsPage";
 import { getAllProducts, getProductReviews, getWooCategories } from "@/lib/woocommerce";
+import { getYoastMetadataBySlug } from "@/lib/yoast-seo";
 
 type ProductPageProps = {
   params: Promise<{
@@ -11,12 +12,24 @@ type ProductPageProps = {
 
 export async function generateMetadata({ params }: ProductPageProps): Promise<Metadata> {
   const { slug } = await params;
-  const products = await getAllProducts();
+  const [products, yoastMetadata] = await Promise.all([
+    getAllProducts(),
+    getYoastMetadataBySlug("product", slug)
+  ]);
   const product = products.find((item) => item.slug === slug);
 
   if (!product) {
     return {
       title: "Product"
+    };
+  }
+
+  if (yoastMetadata) {
+    return {
+      ...yoastMetadata,
+      alternates: {
+        canonical: `/products/${slug}`
+      }
     };
   }
 
