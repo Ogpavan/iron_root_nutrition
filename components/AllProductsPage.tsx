@@ -142,24 +142,39 @@ function getProductIdentity(product: HomeProduct) {
   return String(product.id ?? product.slug ?? product.name);
 }
 
+function isOutOfStock(product: HomeProduct) {
+  return product.stockStatus?.toLowerCase().replace(/[\s_-]/g, "") === "outofstock";
+}
+
+function sortOutOfStockLast(productsToSort: HomeProduct[]) {
+  return [...productsToSort].sort((first, second) => Number(isOutOfStock(first)) - Number(isOutOfStock(second)));
+}
+
 function sortCollectionProducts(productsToSort: HomeProduct[], sortBy: string) {
+  const inStockProducts = productsToSort.filter((product) => !isOutOfStock(product));
+  const outOfStockProducts = productsToSort.filter(isOutOfStock);
+
   if (sortBy === "Newest First") {
-    return [...productsToSort].reverse();
+    return [...inStockProducts].reverse().concat([...outOfStockProducts].reverse());
   }
 
   if (sortBy === "Price: Low to High") {
-    return [...productsToSort].sort((first, second) => {
+    const sortByPrice = (first: HomeProduct, second: HomeProduct) => {
       return (readPrice(first.price) ?? Number.MAX_SAFE_INTEGER) - (readPrice(second.price) ?? Number.MAX_SAFE_INTEGER);
-    });
+    };
+
+    return [...inStockProducts].sort(sortByPrice).concat([...outOfStockProducts].sort(sortByPrice));
   }
 
   if (sortBy === "Price: High to Low") {
-    return [...productsToSort].sort((first, second) => {
+    const sortByPrice = (first: HomeProduct, second: HomeProduct) => {
       return (readPrice(second.price) ?? 0) - (readPrice(first.price) ?? 0);
-    });
+    };
+
+    return [...inStockProducts].sort(sortByPrice).concat([...outOfStockProducts].sort(sortByPrice));
   }
 
-  return productsToSort;
+  return inStockProducts.concat(outOfStockProducts);
 }
 
 export default function AllProductsPage({
@@ -294,7 +309,7 @@ export default function AllProductsPage({
 
   const sortedProducts = useMemo(() => {
     if (activeSearchQuery && sortBy === "Featured") {
-      return sortProductsBySearchRelevance(filteredProducts, activeSearchQuery);
+      return sortOutOfStockLast(sortProductsBySearchRelevance(filteredProducts, activeSearchQuery));
     }
 
     return sortCollectionProducts(filteredProducts, sortBy);
@@ -501,8 +516,9 @@ export default function AllProductsPage({
         <button
           type="button"
           className="quick-add-button"
-          aria-label={`Add ${product.name} to cart`}
+          aria-label={isOutOfStock(product) ? `${product.name} is out of stock` : `Add ${product.name} to cart`}
           onClick={() => addItem(product)}
+          disabled={isOutOfStock(product)}
         >
           <Plus aria-hidden="true" size={28} strokeWidth={1.8} />
         </button>
@@ -514,6 +530,7 @@ export default function AllProductsPage({
         </a>
         <div className="collection-price-row">
           <strong className="collection-card-price">{product.price}</strong>
+          {isOutOfStock(product) ? <span className="collection-card-stock">Out of stock</span> : null}
           {product.mrp && getDiscountPercent(product) > 0 ? (
             <>
               <span className="collection-card-mrp">{product.mrp}</span>

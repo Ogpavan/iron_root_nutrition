@@ -2656,6 +2656,11 @@ h6 {
   transform: scale(1.04);
 }
 
+.quick-add-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .collection-card-body {
   display: flex;
   flex: 1;
@@ -2669,6 +2674,15 @@ h6 {
   font-weight: 400;
   line-height: 1;
   text-transform: none;
+}
+
+.collection-card-stock {
+  margin-top: 0;
+  color: #d92d20;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .collection-card-title {
@@ -3393,6 +3407,21 @@ h6 {
 .product-buy-button:hover {
   background: #050505;
   box-shadow: 0 10px 20px rgba(5, 5, 5, 0.18);
+}
+
+.product-buy-button.is-out-of-stock,
+.product-buy-button.is-out-of-stock:disabled,
+.product-buy-button.is-out-of-stock:disabled:hover {
+  background: #d92d20;
+  color: #ffffff;
+  opacity: 1;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.product-buy-button.is-out-of-stock svg {
+  transform: none;
 }
 
 .product-detail-promises {

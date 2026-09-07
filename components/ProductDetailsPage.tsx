@@ -333,11 +333,12 @@ export default function ProductDetailsPage({
   const displayMrp = activeVariation?.mrp ?? product.mrp;
   const discountPercent = getDiscountPercent(displayPrice, displayMrp);
   const displayStockStatus = activeVariation?.stockStatus ?? product.stockStatus;
+  const isOutOfStock = displayStockStatus === "outofstock";
   const selectedCartProduct = useMemo(
     () => buildCartProduct(product, activeVariation, selectableAttributes, selectedOptions),
     [activeVariation, product, selectableAttributes, selectedOptions]
   );
-  const addDisabled = hasSelectableAttributes && (!activeVariation || displayStockStatus === "outofstock");
+  const addDisabled = isOutOfStock || (hasSelectableAttributes && !activeVariation);
 
   useEffect(() => {
     setSelectedOptions(getInitialSelectedOptions(product));
@@ -565,14 +566,14 @@ export default function ProductDetailsPage({
 
             <motion.button
               type="button"
-              className="product-buy-button"
+              className={`product-buy-button${isOutOfStock ? " is-out-of-stock" : ""}`}
               variants={detailCopyItem}
               transition={{ duration: 0.52, ease: "easeOut" }}
               onClick={addSelectedItem}
               disabled={addDisabled}
             >
               <Zap size={17} aria-hidden="true" />
-              <span>Buy it now</span>
+              <span>{isOutOfStock ? "Out of stock" : "Buy it now"}</span>
             </motion.button>
 
             <motion.ul
