@@ -17,6 +17,7 @@ import {
   flavourTiles,
   heroImage,
   news,
+  concernItems,
   services,
   stats,
   type HomeProduct
@@ -63,6 +64,47 @@ const fitnessHeadingItem = {
 };
 
 type FlavourTile = (typeof flavourTiles)[number];
+
+const trustItems = [
+  {
+    title: "Quality-Focused Products",
+    text: "Products selected with training, nutrition and everyday use in mind.",
+    icon: "/assets/trust-icons/quality-products.png"
+  },
+  {
+    title: "Clear Product Information",
+    text: "Understand what you're choosing, how to use it and where it fits into your routine.",
+    icon: "/assets/trust-icons/clear-information.png"
+  },
+  {
+    title: "Authenticity Support",
+    text: "A straightforward way to verify and shop with confidence.",
+    icon: "/assets/trust-icons/authenticity-support.png"
+  },
+  {
+    title: "Customer Support",
+    text: "Get assistance when you need help choosing or using your products.",
+    icon: "/assets/trust-icons/customer-support.png"
+  }
+];
+
+const sampleReviews = [
+  {
+    name: "Aarav Sharma",
+    quote: "The simple routine and smooth mixability make IronRoot easy to use every day.",
+    rating: 5
+  },
+  {
+    name: "Priya Nair",
+    quote: "A dependable part of my post-workout routine and a great fit for busy training days.",
+    rating: 5
+  },
+  {
+    name: "Rohan Mehta",
+    quote: "Clear product information and straightforward nutrition support for consistent training.",
+    rating: 5
+  }
+];
 
 const founderImage =
   "https://admin.ironrootnutrition.com/wp-content/uploads/2026/07/ChatGPT-Image-Jul-16-2026-04_08_17-PM.png";
@@ -135,14 +177,16 @@ function Hero() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.32, duration: 0.6 }}
           >
-            Fuel your strength
+            Gym Supplements for <span className="hero-highlight">Strength</span>,{" "}
+            <span className="hero-highlight">Performance</span> &{" "}
+            <span className="hero-highlight">Recovery</span>
           </motion.h1>
           <motion.p
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.45, duration: 0.6 }}
           >
-            Performance nutrition for serious training and everyday wellness.
+            Train With Purpose. Fuel Your Routine. Stay Consistent.
           </motion.p>
           <motion.a
             href="#products"
@@ -151,7 +195,7 @@ function Hero() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.58, duration: 0.55 }}
           >
-            Discover now
+            Shop Now
           </motion.a>
         </div>
       </motion.div>
@@ -237,6 +281,39 @@ function FeaturedProducts({ products }: { products: HomeProduct[] }) {
           <ProductCard key={product.id ?? product.name} product={product} index={index} />
         ))}
       </motion.div>
+    </MotionSection>
+  );
+}
+
+function ShopByGoal() {
+  return (
+    <MotionSection className="section-pad shop-goals">
+      <div className="shop-goals-heading">
+        <p className="eyebrow">Shop by goal</p>
+        <h2>Browse by concern</h2>
+      </div>
+      <div className="shop-goals-grid">
+        {concernItems.map((goal, index) => (
+          <motion.a
+            key={goal.title}
+            className="shop-goal-card"
+            href={goal.href}
+            variants={reveal}
+            transition={{ duration: 0.55, delay: index * 0.08 }}
+            whileHover={{ y: -6 }}
+          >
+            <span className="shop-goal-image">
+              <Image src={goal.image} alt="" fill sizes="(max-width: 560px) 100vw, (max-width: 1100px) 33vw, 20vw" />
+            </span>
+            <span className="shop-goal-copy">
+              <strong>{goal.title}</strong>
+              <span className="shop-goal-link">
+                Explore Products <span aria-hidden="true">→</span>
+              </span>
+            </span>
+          </motion.a>
+        ))}
+      </div>
     </MotionSection>
   );
 }
@@ -376,30 +453,34 @@ function FitnessBlock() {
           variants={fitnessCopyItem}
           transition={{ duration: 0.5, ease: "easeOut" }}
         >
-          Founder story
+          Brand introduction
         </motion.p>
         <motion.h2
           variants={fitnessHeadingItem}
           transition={{ duration: 0.68, ease: "easeOut" }}
         >
-          Built for training, shaped by discipline
+          Built for Training. Shaped by Discipline.
         </motion.h2>
         <motion.p variants={fitnessCopyItem} transition={{ duration: 0.58, ease: "easeOut" }}>
-          IronRoot started with a simple idea: make nutrition easy to carry, easy to
-          trust, and strong enough to support daily training. What began as a gym-led
-          routine became a supplement brand focused on consistency, recovery, and
-          performance.
+          IronRoot Nutrition started with a simple idea: supplementation should make a
+          training routine easier to follow, not more complicated.
+        </motion.p>
+        <motion.p variants={fitnessCopyItem} transition={{ duration: 0.58, ease: "easeOut" }}>
+          Training teaches consistency. Nutrition supports the work behind it. The right
+          supplement can simply help fill a practical gap.
+        </motion.p>
+        <motion.p variants={fitnessCopyItem} transition={{ duration: 0.58, ease: "easeOut" }}>
+          That's the approach behind IronRoot—a focused range of Fitness Supplements and
+          Workout Supplements created for people who take their training seriously and
+          want straightforward nutrition support.
         </motion.p>
         <motion.div
           className="button-row"
           variants={fitnessCopyItem}
           transition={{ duration: 0.52, ease: "easeOut" }}
         >
-          <a className="pill" href="#products">
-            Shop supplements
-          </a>
-          <a className="pill outline" href="/founder-inspiring-story">
-            Read more
+          <a className="pill" href="/founder-inspiring-story">
+            Learn More About IronRoot
           </a>
         </motion.div>
       </motion.div>
@@ -417,6 +498,33 @@ function FitnessBlock() {
           unoptimized
         />
       </motion.figure>
+    </MotionSection>
+  );
+}
+
+function TrustStrip() {
+  return (
+    <MotionSection className="trust-strip">
+      <div className="trust-strip-heading">
+        <p className="eyebrow">Why IronRoot</p>
+        <h2>Choose With Confidence</h2>
+      </div>
+      <div className="trust-grid">
+        {trustItems.map((item, index) => (
+          <motion.article
+            key={item.title}
+            variants={reveal}
+            transition={{ duration: 0.5, delay: index * 0.08 }}
+          >
+            <span className="trust-card-top">
+              <Image src={item.icon} alt="" width={48} height={48} aria-hidden="true" />
+              <span className="trust-number">0{index + 1}</span>
+            </span>
+            <h3>{item.title}</h3>
+            <p>{item.text}</p>
+          </motion.article>
+        ))}
+      </div>
     </MotionSection>
   );
 }
@@ -495,6 +603,38 @@ function StrawberryFeature({ products }: { products: HomeProduct[] }) {
             <span>{item.label}</span>
           </div>
         ))}
+      </div>
+    </MotionSection>
+  );
+}
+
+function ReviewsSection() {
+  const reviewCards = [...sampleReviews, ...sampleReviews];
+
+  return (
+    <MotionSection id="reviews" className="reviews-section">
+      <div className="reviews-heading">
+        <p className="eyebrow">Reviews</p>
+        <h2>Trusted by the IronRoot Community</h2>
+        <p>
+          Real experiences from people who have made IronRoot part of their training routine.
+        </p>
+      </div>
+      <div className="reviews-marquee" aria-label="Sample customer reviews">
+        <div className="reviews-track">
+          {reviewCards.map((review, index) => (
+            <article className="review-card" key={review.name + index}>
+              <div className="review-stars" aria-label={review.rating + " out of 5 stars"}>
+                {"★".repeat(review.rating)}
+              </div>
+              <blockquote>“{review.quote}”</blockquote>
+              <footer>
+                <strong>{review.name}</strong>
+                <span>Sample review</span>
+              </footer>
+            </article>
+          ))}
+        </div>
       </div>
     </MotionSection>
   );
@@ -627,10 +767,13 @@ export default function HomePage({
       <main>
         <Hero />
         <FeaturedProducts products={products} />
+        <ShopByGoal />
         <FlavourTiles products={productCatalog} />
         <QuoteBand />
         <FitnessBlock />
+        <TrustStrip />
         <StrawberryFeature products={productCatalog} />
+        <ReviewsSection />
         <SplitBenefit products={productCatalog} />
         <IceTeaBanner products={productCatalog} />
         <LatestNews />

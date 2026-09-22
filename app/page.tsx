@@ -1,6 +1,15 @@
+import type { Metadata } from "next";
 import HomePage from "@/components/HomePage";
 import { getAllProducts, getWooCategories } from "@/lib/woocommerce";
 import type { HomeProduct } from "@/lib/home-data";
+
+export const metadata: Metadata = {
+  title: {
+    absolute: "Best Gym Supplements Online | IronRoot Nutrition"
+  },
+  description:
+    "Shop Best gym supplements online from IronRoot Nutrition. Explore quality-focused supplements for strength, muscle support, performance, recovery and everyday fitness."
+};
 
 const jsonLd = {
   "@context": "https://schema.org",

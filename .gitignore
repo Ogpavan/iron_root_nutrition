@@ -6,3 +6,6 @@ dist/
 *.tsbuildinfo
 .env*.local
 .env.production
+
+.vercel
+.env*

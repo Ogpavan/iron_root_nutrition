@@ -11,6 +11,9 @@ const nextConfig: NextConfig = {
       },
       {
         pathname: "/assets/payment/**"
+      },
+      {
+        pathname: "/assets/trust-icons/**"
       }
     ],
     remotePatterns: [
