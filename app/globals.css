@@ -946,6 +946,16 @@ h6 {
   text-transform: uppercase;
 }
 
+@media (min-width: 821px) {
+  .shop-browse-page {
+    padding-top: 160px;
+  }
+
+  .shop-browse-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 .support-page {
   overflow: hidden;
   padding-top: 138px;
@@ -1779,12 +1789,6 @@ h6 {
     justify-content: center;
   }
 }
-@media (min-width: 821px) {
-  .shop-browse-page {
-    display: none;
-  }
-}
-
 .header-actions {
   display: flex;
   grid-column: 2;

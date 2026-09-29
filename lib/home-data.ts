@@ -76,7 +76,6 @@ type NavItem = {
   imageAlt?: string;
   dropdown?: boolean;
   featured?: boolean;
-  mobileOnlyPage?: boolean;
   menuKey?: "categories" | "concerns";
 };
 
@@ -87,14 +86,12 @@ export const navItems: NavItem[] = [
     label: "Shop by Category",
     href: "/shop-by-category",
     dropdown: true,
-    mobileOnlyPage: true,
     menuKey: "categories"
   },
   {
     label: "Shop by Concern",
     href: "/shop-by-concern",
     dropdown: true,
-    mobileOnlyPage: true,
     menuKey: "concerns"
   },
   { label: "Authenticity", href: "/authenticity" }

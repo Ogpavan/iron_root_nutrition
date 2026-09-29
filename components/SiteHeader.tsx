@@ -420,15 +420,9 @@ export default function SiteHeader({
                 <a
                   accessKey={item.accessKey}
                   className={item.featured ? "nav-featured" : undefined}
-                  href={item.mobileOnlyPage && item.menuKey ? "#" : item.href}
+                  href={item.href}
                   aria-haspopup={item.menuKey ? "true" : undefined}
                   aria-expanded={item.menuKey ? activeMenu === item.menuKey : undefined}
-                  onClick={(event) => {
-                    if (item.mobileOnlyPage && item.menuKey) {
-                      event.preventDefault();
-                      openMenu(item.menuKey);
-                    }
-                  }}
                 >
                   <span className="nav-label">{item.label}</span>
                   {item.dropdown ? (
