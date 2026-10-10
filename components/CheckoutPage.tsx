@@ -980,7 +980,7 @@ export default function CheckoutPage({ categories }: CheckoutPageProps) {
                     </div>
                   </div>
                 ) : null}
-                <button type="button" onClick={() => router.push("/all-products")}>
+                <button type="button" onClick={() => router.push("/supplements")}>
                   Continue shopping
                 </button>
               </section>
@@ -1152,7 +1152,7 @@ export default function CheckoutPage({ categories }: CheckoutPageProps) {
                 <ShoppingBag size={32} aria-hidden="true" />
                 <h2>Loading checkout</h2>
                 <p>Add products first.</p>
-                <button type="button" onClick={() => router.push("/all-products")}>
+                <button type="button" onClick={() => router.push("/supplements")}>
                   Continue shopping
                 </button>
               </section>
@@ -1284,7 +1284,7 @@ export default function CheckoutPage({ categories }: CheckoutPageProps) {
                   </p>
                 ) : null}
 
-                <a href="/all-products">Return to shopping</a>
+                <a href="/supplements">Return to shopping</a>
               </div>
             </aside>
           ) : null}

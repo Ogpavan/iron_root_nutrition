@@ -81,7 +81,7 @@ type NavItem = {
 
 export const navItems: NavItem[] = [
   { label: "Home", href: "/" },
-  { label: "All Products", href: "/all-products" },
+  { label: "All Products", href: "/supplements" },
   {
     label: "Shop by Category",
     href: "/shop-by-category",
@@ -106,27 +106,27 @@ export type ConcernItem = {
 export const concernItems: ConcernItem[] = [
   {
     title: "Build Lean Muscle",
-    href: "/all-products?concern=build-lean-muscle",
+    href: "/supplements?concern=build-lean-muscle",
     image: "https://admin.ironrootnutrition.com/wp-content/uploads/2026/06/ChatGPT-Image-Jun-16-2026-03_07_26-PM.png"
   },
   {
     title: "Strength & Performance",
-    href: "/all-products?concern=strength-performance",
+    href: "/supplements?concern=strength-performance",
     image: "https://admin.ironrootnutrition.com/wp-content/uploads/2026/06/ChatGPT-Image-Jun-16-2026-03_36_41-PM.png"
   },
   {
     title: "Mass & Weight Gain",
-    href: "/all-products?concern=mass-weight-gain",
+    href: "/supplements?concern=mass-weight-gain",
     image: "https://admin.ironrootnutrition.com/wp-content/uploads/2026/06/ChatGPT-Image-Jun-16-2026-03_22_10-PM.png"
   },
   {
     title: "Recovery & Repair",
-    href: "/all-products?concern=recovery-repair",
+    href: "/supplements?concern=recovery-repair",
     image: "https://admin.ironrootnutrition.com/wp-content/uploads/2026/06/ChatGPT-Image-Jun-16-2026-03_24_37-PM.png"
   },
   {
     title: "Overall Health & Wellness",
-    href: "/all-products?concern=overall-health-wellness",
+    href: "/supplements?concern=overall-health-wellness",
     image: "https://admin.ironrootnutrition.com/wp-content/uploads/2026/06/ChatGPT-Image-Jun-16-2026-03_28_35-PM.png"
   }
 ];
@@ -137,12 +137,12 @@ export const products: HomeProduct[] = [
     sku: "IR-TITAN-MEAL-MASS-GAINER",
     slug: "titan-meal-mass-gainer",
     name: "Titan Meal Mass Gainer",
-    tag: "Mass Gainer",
+    tag: "Gainer",
     price: "₹3,749",
     mrp: "₹4,999",
     image: "https://admin.ironrootnutrition.com/wp-content/uploads/2026/06/Titan_Meal_Mass_Gainer-Choco_Charge-1Kg-Front.jpg",
-    categoryNames: ["Mass Gainer"],
-    categorySlugs: ["mass-gainer"],
+    categoryNames: ["Gainer"],
+    categorySlugs: ["gainer"],
     shortDescription: "Balanced nutrition for steady gains.",
     tone: "#d86128"
   },
@@ -151,12 +151,12 @@ export const products: HomeProduct[] = [
     sku: "IR-PRO-FUSION-WHEY-PROTEIN",
     slug: "profusion-whey-protein",
     name: "ProFusion Whey Protein",
-    tag: "Whey Protein",
+    tag: "Protein",
     price: "₹5,249",
     mrp: "₹6,999",
     image: "https://admin.ironrootnutrition.com/wp-content/uploads/2026/06/Pro_Fusion_Whey_Protein_Choco_Charge_2Kg_Front.jpg",
-    categoryNames: ["Whey Protein"],
-    categorySlugs: ["whey-protein"],
+    categoryNames: ["Protein"],
+    categorySlugs: ["protein"],
     shortDescription: "Premium whey protein designed to support muscle growth and recovery.",
     tone: "#8a5a3c"
   },
@@ -179,12 +179,12 @@ export const products: HomeProduct[] = [
     sku: "IR-MYOFUEL-WHEY-PROTEIN",
     slug: "myofuel-whey-protein",
     name: "Myofuel Whey Protein",
-    tag: "Whey Protein",
+    tag: "Protein",
     price: "₹6,374",
     mrp: "₹8,499",
     image: "https://admin.ironrootnutrition.com/wp-content/uploads/2026/06/Myofuel_Whey_Protein_Choco_Charge_1kg_Front.jpg",
-    categoryNames: ["Whey Protein"],
-    categorySlugs: ["whey-protein"],
+    categoryNames: ["Protein"],
+    categorySlugs: ["protein"],
     shortDescription: "Premium whey protein designed to support muscle growth and recovery.",
     tone: "#b76a30"
   },
@@ -193,12 +193,12 @@ export const products: HomeProduct[] = [
     sku: "IR-INTRACHARGE-BCAA",
     slug: "intracharge-bcaa",
     name: "Intracharge BCAA",
-    tag: "BCAA",
+    tag: "Amino Acids",
     price: "₹1,499",
     mrp: "₹1,999",
     image: "https://admin.ironrootnutrition.com/wp-content/uploads/2026/06/Intracharge_BCAA_Artic_Blue_Rush-Front.jpg",
-    categoryNames: ["BCAA"],
-    categorySlugs: ["bcaa"],
+    categoryNames: ["Amino Acids"],
+    categorySlugs: ["amino-acids"],
     shortDescription: "Endurance and recovery in every sip.",
     tone: "#2c7fbb"
   },
@@ -207,12 +207,12 @@ export const products: HomeProduct[] = [
     sku: "IR-GLUTA-BUILD-GLUTAMINE",
     slug: "glutabuild-l-glutamine",
     name: "GlutaBuild - L-Glutamine",
-    tag: "Post Workout",
+    tag: "Amino Acids",
     price: "₹1,200",
     mrp: "₹1,600",
     image: "https://admin.ironrootnutrition.com/wp-content/uploads/2026/06/Gluta_Build_Glutamine_Unflavoured_Front.jpg",
-    categoryNames: ["Post Workout", "Glutamine"],
-    categorySlugs: ["post-workout", "glutamine"],
+    categoryNames: ["Amino Acids"],
+    categorySlugs: ["amino-acids"],
     shortDescription: "Daily nutritional support for a stronger, healthier you.",
     tone: "#5c8f3d"
   },
@@ -221,12 +221,12 @@ export const products: HomeProduct[] = [
     sku: "IR-CREALIFT-CREATINE",
     slug: "crealift-creatine",
     name: "Crealift Creatine",
-    tag: "Pre Workout",
+    tag: "Creatine",
     price: "₹561",
     mrp: "₹749",
     image: "https://admin.ironrootnutrition.com/wp-content/uploads/2026/06/Crealift_Creatine_Unflavoured_Front.jpg",
-    categoryNames: ["Pre Workout", "Creatine"],
-    categorySlugs: ["pre-workout", "creatine"],
+    categoryNames: ["Creatine"],
+    categorySlugs: ["creatine"],
     shortDescription: "Support strength, endurance, and performance.",
     tone: "#95a9b6"
   },
@@ -235,12 +235,12 @@ export const products: HomeProduct[] = [
     sku: "IR-BIG-BUILD-WEIGHT-GAINER",
     slug: "big-build-weight-gainer",
     name: "Big Build Weight Gainer",
-    tag: "Mass Gainer",
+    tag: "Gainer",
     price: "₹2,999",
     mrp: "₹3,999",
     image: "https://admin.ironrootnutrition.com/wp-content/uploads/2026/06/Big_Build_Weight_Gainer_Chocolate_1kg_Front.jpg",
-    categoryNames: ["Mass Gainer"],
-    categorySlugs: ["mass-gainer"],
+    categoryNames: ["Gainer"],
+    categorySlugs: ["gainer"],
     shortDescription: "High-calorie nutrition for clean weight gain.",
     tone: "#6f4d37"
   },
@@ -257,6 +257,54 @@ export const products: HomeProduct[] = [
     categorySlugs: ["pre-workout"],
     shortDescription: "Alpha-level energy for intense workouts.",
     tone: "#e5752d"
+  },
+  {
+    id: 18,
+    sku: "IR-CASEIN-PROTEIN",
+    slug: "casein-protein",
+    name: "Casein Protein",
+    tag: "Protein",
+    price: "₹6,749",
+    image: "https://admin.ironrootnutrition.com/wp-content/uploads/2026/06/Casein_Protein_Choco_Blast_2Kg_Front.jpg",
+    categoryNames: ["Protein"],
+    categorySlugs: ["protein"],
+    tone: "#8a5a3c"
+  },
+  {
+    id: 111,
+    sku: "IR-TRUEDOSE-MULTIVITAMIN-1",
+    slug: "truedose-multivitamin",
+    name: "TrueDose Multivitamin",
+    tag: "Vitamins & Wellness",
+    price: "₹1,200",
+    image: "https://admin.ironrootnutrition.com/wp-content/uploads/2026/06/Truedose_Multivitamin-Front.jpg",
+    categoryNames: ["Vitamins & Wellness"],
+    categorySlugs: ["vitamins-wellness"],
+    tone: "#5c8f3d"
+  },
+  {
+    id: 23,
+    sku: "IR-IRONROOT-LIVERAXIS",
+    slug: "ironroot-liveraxis",
+    name: "Ironroot LiverAxis",
+    tag: "Vitamins & Wellness",
+    price: "₹999",
+    image: "https://admin.ironrootnutrition.com/wp-content/uploads/2026/06/Liveraxis_Organ_Support_Front.jpg",
+    categoryNames: ["Vitamins & Wellness"],
+    categorySlugs: ["vitamins-wellness"],
+    tone: "#5c8f3d"
+  },
+  {
+    id: 22,
+    sku: "IR-IRONROOT-FISHOIL",
+    slug: "ironroot-fish-oil-triple-strength",
+    name: "Ironroot Fish Oil Triple Strength",
+    tag: "Essential Fats",
+    price: "₹749",
+    image: "https://admin.ironrootnutrition.com/wp-content/uploads/2026/06/Ironroot_Fish_Oil_Front.jpg",
+    categoryNames: ["Essential Fats"],
+    categorySlugs: ["essential-fats"],
+    tone: "#b76a30"
   }
 ];
 
@@ -286,7 +334,7 @@ export const flavourTiles = [
 
 export const stats = [
   { value: "600+", label: "Happy\ncustomers" },
-  { value: "6", label: "Training\ncategories" },
+  { value: "7", label: "Training\ncategories" },
   { value: "100%", label: "Authenticity\ncheck" },
   { value: "24/7", label: "Customer\nsupport" }
 ];

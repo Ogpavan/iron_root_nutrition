@@ -48,10 +48,10 @@ function getSearchHref(product: HomeProduct) {
   }
 
   if (product.slug) {
-    return `/products/${product.slug}`;
+    return `/supplements/${product.categorySlugs?.[0] || "all"}/${product.slug}`;
   }
 
-  return "/all-products";
+  return "/supplements";
 }
 
 function withSearchHref(product: HomeProduct): HomeProduct {
@@ -156,7 +156,7 @@ export default function SiteHeader({
 
   const runSearch = (value: string) => {
     const query = value.trim();
-    const href = query ? `/all-products?q=${encodeURIComponent(query)}` : "/all-products";
+    const href = query ? `/supplements?q=${encodeURIComponent(query)}` : "/supplements";
 
     setSearchOpen(false);
     setSearchQuery("");
@@ -522,7 +522,7 @@ export default function SiteHeader({
                     {visibleSearchProducts.map((product) => (
                       <a
                         className="header-search-result"
-                        href={product.href ?? "/all-products"}
+                        href={product.href ?? "/supplements"}
                         key={product.id ?? product.slug ?? product.name}
                         onClick={closeSearch}
                       >

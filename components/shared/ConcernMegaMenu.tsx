@@ -27,7 +27,7 @@ export default function ConcernMegaMenu({ open, onMouseEnter, onMouseLeave }: Co
         <div className="category-mega-intro">
           <h2>Browse by concern</h2>
         </div>
-        <a className="category-view-all" href="/all-products">
+        <a className="category-view-all" href="/supplements">
           View all <span aria-hidden="true">→</span>
         </a>
       </div>

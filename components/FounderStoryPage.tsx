@@ -46,7 +46,7 @@ export default function FounderStoryPage({ categories, products }: FounderStoryP
               trust, and strong enough to support daily training.
             </span>
             <div className="founder-story-actions">
-              <a className="pill" href="/all-products">
+              <a className="pill" href="/supplements">
                 Shop supplements
               </a>
               <a className="pill outline" href="#story">
@@ -108,7 +108,7 @@ export default function FounderStoryPage({ categories, products }: FounderStoryP
               <p>Carry the routine forward</p>
               <h2>Fuel your next training day</h2>
             </div>
-            <a className="pill light" href="/all-products">
+            <a className="pill light" href="/supplements">
               Shop supplements <ArrowRight size={15} aria-hidden="true" />
             </a>
           </section>

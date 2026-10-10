@@ -364,6 +364,8 @@ export default function ProductDetailsPage({
     product.shortDescription ||
     "A refreshing IronRoot product made for simple daily hydration and flavour.";
   const displayReviews = reviews.length > 0 ? reviews : fallbackReviews;
+  const primaryCategoryName = product.categoryNames?.[0] || product.tag;
+  const primaryCategorySlug = product.categorySlugs?.[0] || "all";
 
   return (
     <>
@@ -381,11 +383,11 @@ export default function ProductDetailsPage({
           variants={detailCopyItem}
           transition={{ duration: 0.5, ease: "easeOut" }}
         >
-          <a href="/">Homepage</a>
+          <a href="/supplements">Shop Supplements</a>
           <ChevronRight aria-hidden="true" size={15} strokeWidth={2.8} />
-          <a href="/all-products">All Products</a>
+          <a href={`/supplements/${primaryCategorySlug}`}>{primaryCategoryName}</a>
           <ChevronRight aria-hidden="true" size={15} strokeWidth={2.8} />
-          <span>{product.name}</span>
+          <span aria-current="page">{product.name}</span>
         </motion.nav>
 
         <section className="product-detail-layout">
@@ -678,7 +680,7 @@ export default function ProductDetailsPage({
           <section className="related-products">
             <div className="related-products-header">
               <h2>You may also like</h2>
-              <a href="/all-products">View all</a>
+              <a href="/supplements">View all</a>
             </div>
             <div className="related-products-grid">
               {relatedProducts.map((item) => (

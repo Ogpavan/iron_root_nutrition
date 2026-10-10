@@ -13,7 +13,8 @@ import {
   X
 } from "lucide-react";
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useCart } from "@/components/cart/CartProvider";
 import SiteHeader from "@/components/SiteHeader";
 import type { HomeProduct } from "@/lib/home-data";
@@ -27,6 +28,8 @@ type AllProductsPageProps = {
   initialCategory?: string;
   initialConcern?: string;
   initialSearch?: string;
+  categoryIntro?: string;
+  categoryContent?: ReactNode;
 };
 
 const concernFilters = [
@@ -108,15 +111,6 @@ function getProductCategoryKeys(product: HomeProduct) {
     .filter(Boolean)
     .forEach((key) => {
       keys.add(key);
-
-      if (key.includes("protein") || key.includes("fish-oil")) keys.add("protein");
-      if (key.includes("pre-workout") || key.includes("preworkout")) keys.add("pre-workout");
-      if (key.includes("mass-gainer") || key.includes("weight-gainer") || key.includes("glutamine")) {
-        keys.add("mass-gainer");
-      }
-      if (key.includes("multivitamin") || key.includes("liver-axis")) keys.add("multivitamin");
-      if (key.includes("creatine")) keys.add("creatine");
-      if (key.includes("bcaa")) keys.add("bcaa");
     });
 
   return keys;
@@ -183,9 +177,12 @@ export default function AllProductsPage({
   title = "All Products",
   initialCategory = "all",
   initialConcern = "all",
-  initialSearch = ""
+  initialSearch = "",
+  categoryIntro,
+  categoryContent
 }: AllProductsPageProps) {
   const { addItem } = useCart();
+  const router = useRouter();
   const reduceMotion = useReducedMotion();
   const [activeCategory, setActiveCategory] = useState(initialCategory || "all");
   const [activeConcern, setActiveConcern] = useState(initialConcern || "all");
@@ -193,6 +190,7 @@ export default function AllProductsPage({
   const [activePrice, setActivePrice] = useState("all");
   const [sortBy, setSortBy] = useState("Featured");
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const [categoryIntroExpanded, setCategoryIntroExpanded] = useState(false);
   const [loadedImages, setLoadedImages] = useState<Set<string>>(() => new Set());
   const [openFilters, setOpenFilters] = useState({
     categories: true,
@@ -226,6 +224,10 @@ export default function AllProductsPage({
   useEffect(() => {
     setSearchQuery(initialSearch);
   }, [initialSearch]);
+
+  useEffect(() => {
+    setActiveCategory(initialCategory || "all");
+  }, [initialCategory]);
 
   const categoryOptions = useMemo(() => {
     const taggedProducts = products.flatMap((product) => {
@@ -343,6 +345,16 @@ export default function AllProductsPage({
     setActiveConcern("all");
     setActivePrice("all");
     setSearchQuery("");
+    router.push("/supplements", { scroll: false });
+  };
+  const changeCategory = (category: string) => {
+    setActiveCategory(category);
+    setActiveConcern("all");
+    setActivePrice("all");
+    setSearchQuery("");
+    router.push(category === "all" ? "/supplements" : `/supplements/${encodeURIComponent(category)}`, {
+      scroll: false
+    });
   };
   const selectedCategoryName = categoryOptions.find((category) => category.slug === activeCategory)?.name;
   const collectionHeading = selectedCategoryName || (searchQuery.trim() ? "Search Results" : title);
@@ -375,7 +387,7 @@ export default function AllProductsPage({
               <input
                 type="checkbox"
                 checked={activeCategory === "all"}
-                onChange={() => setActiveCategory("all")}
+                onChange={() => changeCategory("all")}
               />
               <span>In stock</span>
             </label>
@@ -384,7 +396,7 @@ export default function AllProductsPage({
                 <input
                   type="checkbox"
                   checked={activeCategory === category.slug}
-                  onChange={() => setActiveCategory(category.slug)}
+                  onChange={() => changeCategory(category.slug)}
                 />
                 <span>{category.name}</span>
                 {category.count > 0 ? <small>{category.count}</small> : null}
@@ -557,7 +569,15 @@ export default function AllProductsPage({
         <nav className="collection-breadcrumb" aria-label="Breadcrumb">
           <a href="/">Homepage</a>
           <ChevronRight aria-hidden="true" size={15} strokeWidth={2.8} />
-          <span>{title}</span>
+          {selectedCategoryName ? (
+            <>
+              <a href="/supplements">{title}</a>
+              <ChevronRight aria-hidden="true" size={15} strokeWidth={2.8} />
+              <span aria-current="page">{selectedCategoryName}</span>
+            </>
+          ) : (
+            <span aria-current="page">{title}</span>
+          )}
         </nav>
 
         <div className="collection-layout">
@@ -567,6 +587,21 @@ export default function AllProductsPage({
             <div className="collection-toolbar">
               <div className="collection-title-block">
                 <h1>{collectionHeading}</h1>
+                {categoryIntro && activeCategory !== "all" ? (
+                  <div className={`collection-description-block${categoryIntroExpanded ? " is-expanded" : " is-collapsed"}`}>
+                    <p className="collection-description">
+                      {categoryIntro}
+                    </p>
+                    <button
+                      className="collection-description-toggle"
+                      type="button"
+                      aria-expanded={categoryIntroExpanded}
+                      onClick={() => setCategoryIntroExpanded((expanded) => !expanded)}
+                    >
+                      {categoryIntroExpanded ? "Read less" : "Read more"}
+                    </button>
+                  </div>
+                ) : null}
                 {searchQuery.trim() ? (
                   <div className="collection-search-chip">
                     <span>{searchQuery.trim()}</span>
@@ -646,6 +681,7 @@ export default function AllProductsPage({
                 </button>
               </div>
             ) : null}
+            {categoryContent}
           </section>
         </div>
         {mobileFiltersOpen ? (

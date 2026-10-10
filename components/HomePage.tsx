@@ -266,7 +266,7 @@ function FeaturedProducts({ products }: { products: HomeProduct[] }) {
     <MotionSection id="products" className="section-pad featured-products">
       <div className="section-header">
         <h2>Featured products</h2>
-        <a href="/all-products" className="inline-link">
+        <a href="/supplements" className="inline-link">
           View all <ChevronRight size={14} />
         </a>
       </div>
@@ -535,7 +535,7 @@ function StrawberryFeature({ products }: { products: HomeProduct[] }) {
   const proteinPromoMobileImage =
     "https://admin.ironrootnutrition.com/wp-content/uploads/2026/06/17.webp";
   const proFusionProduct = findProductByAliases(products, ["pro fusion", "profusion"]);
-  const proFusionHref = proFusionProduct?.href ?? "/products/pro-fusion";
+  const proFusionHref = proFusionProduct?.href ?? "/supplements/protein/profusion-whey-protein";
   const stageRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({
     target: stageRef,
@@ -592,7 +592,7 @@ function StrawberryFeature({ products }: { products: HomeProduct[] }) {
         <a className="pill" href={proFusionHref}>
           Shop now
         </a>
-        <a className="pill outline" href="/all-products">
+        <a className="pill outline" href="/supplements">
           All products
         </a>
       </div>
@@ -644,7 +644,7 @@ function SplitBenefit({ products }: { products: HomeProduct[] }) {
   const benefitImage =
     "https://admin.ironrootnutrition.com/wp-content/uploads/2026/07/ChatGPT-Image-Jul-1-2026-03_58_16-PM.png";
   const gainerProduct = findProductByAliases(products, ["titan meal", "big build", "mass gainer", "weight gainer"]);
-  const gainerHref = gainerProduct?.href ?? "/all-products?category=mass-gainer";
+  const gainerHref = gainerProduct?.href ?? "/supplements/gainer";
 
   return (
     <MotionSection id="bottles" className="split-benefit">
@@ -675,7 +675,7 @@ function IceTeaBanner({ products }: { products: HomeProduct[] }) {
   const bannerImage =
     "https://admin.ironrootnutrition.com/wp-content/uploads/2026/06/ChatGPT-Image-Jun-11-2026-03_12_46-PM.png";
   const glutamineProduct = findProductByAliases(products, ["glutamine"]);
-  const glutamineHref = glutamineProduct?.href ?? "/all-products?category=glutamine";
+  const glutamineHref = glutamineProduct?.href ?? "/supplements/amino-acids";
 
   return (
     <MotionSection className="ice-banner">

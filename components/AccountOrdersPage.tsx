@@ -341,7 +341,7 @@ export default function AccountOrdersPage({ categories }: AccountOrdersPageProps
                 <Search size={34} aria-hidden="true" />
                 <h2>No orders found</h2>
                 <p>No previous orders were found for this account.</p>
-                <a href="/all-products">Start shopping</a>
+                <a href="/supplements">Start shopping</a>
               </div>
             ) : (
               <>
@@ -458,7 +458,7 @@ export default function AccountOrdersPage({ categories }: AccountOrdersPageProps
                               </span>
                             ) : null}
                             <span className="orders-list-actions">
-                              <a href="/all-products">
+                              <a href="/supplements">
                                 <RotateCcw size={15} aria-hidden="true" />
                                 Buy again
                               </a>

@@ -4,7 +4,7 @@ import MiniCart from "@/components/cart/MiniCart";
 import SiteFooter from "@/components/SiteFooter";
 import "./globals.css";
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://ironrootnutrition.local";
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.ironrootnutrition.com";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -13,14 +13,14 @@ export const metadata: Metadata = {
     template: "%s | IronRoot Nutrition"
   },
   description:
-    "A polished Next.js storefront homepage for IronRoot Nutrition, built with responsive components, local assets, and SEO metadata.",
+    "Shop IronRoot Nutrition supplements for strength, muscle growth, workout performance, recovery, and everyday wellness.",
   alternates: {
     canonical: "/"
   },
   openGraph: {
     title: "IronRoot Nutrition",
     description:
-      "Performance nutrition, training supplements, and lifestyle products in a responsive storefront.",
+      "Shop IronRoot Nutrition supplements for strength, muscle growth, workout performance, recovery, and everyday wellness.",
     url: "/",
     siteName: "IronRoot Nutrition",
     images: [
@@ -37,7 +37,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "IronRoot Nutrition",
-    description: "Performance nutrition in a high-performance Next.js storefront.",
+    description: "Shop supplements for strength, performance, recovery, and everyday wellness from IronRoot Nutrition.",
     images: ["/assets/bolero/hero-bolero.webp"]
   },
   icons: {

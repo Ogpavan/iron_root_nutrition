@@ -366,7 +366,7 @@ function mapProduct(product: WooProduct, index: number, variations: MappedProduc
   const image = galleryImages?.[0];
   const productCategories = product.categories?.filter((category) => category.name || category.slug) ?? [];
   const categoryNames = productCategories
-    .map((category) => category.name)
+    .map((category) => cleanHtml(category.name))
     .filter(Boolean) as string[];
   const categorySlugs = productCategories
     .map((category) => category.slug || (category.name ? slugify(category.name) : undefined))
@@ -404,7 +404,7 @@ function mapProduct(product: WooProduct, index: number, variations: MappedProduc
     defaultAttributes: mapDefaultAttributes(product),
     variations: variations.length > 0 ? variations : undefined,
     tone: productTones[index % productTones.length],
-    href: `/products/${slug}`
+    href: `/supplements/${categorySlugs[0] || "all"}/${slug}`
   };
 }
 
@@ -552,12 +552,13 @@ const preWorkoutCategoryImage =
   "https://admin.ironrootnutrition.com/wp-content/uploads/2026/06/ChatGPT-Image-Jun-15-2026-06_08_35-PM.png";
 
 const categoryFallbacks: WooCatalogCategory[] = [
-  { name: "Lemonade", slug: "lemonade", count: 0, image: categoryFallbackImages[0], href: "/all-products" },
-  { name: "Ice Tea", slug: "ice-tea", count: 0, image: categoryFallbackImages[1], href: "/all-products" },
-  { name: "Sport", slug: "sport", count: 0, image: categoryFallbackImages[4], href: "/all-products" },
-  { name: "Sale", slug: "sale", count: 0, image: categoryFallbackImages[3], href: "/all-products" },
-  { name: "Drink Bottles", slug: "drink-bottles", count: 0, image: categoryFallbackImages[2], href: "/all-products" },
-  { name: "Sticks", slug: "sticks", count: 0, image: categoryFallbackImages[5], href: "/all-products" }
+  { name: "Protein", slug: "protein", count: 3, image: proteinCategoryImage, href: "/supplements/protein" },
+  { name: "Gainer", slug: "gainer", count: 2, image: massGainerCategoryImage, href: "/supplements/gainer" },
+  { name: "Pre Workout", slug: "pre-workout", count: 2, image: preWorkoutCategoryImage, href: "/supplements/pre-workout" },
+  { name: "Amino Acids", slug: "amino-acids", count: 2, image: bcaaCategoryImage, href: "/supplements/amino-acids" },
+  { name: "Creatine", slug: "creatine", count: 1, image: creatineCategoryImage, href: "/supplements/creatine" },
+  { name: "Vitamins & Wellness", slug: "vitamins-wellness", count: 2, image: multivitaminCategoryImage, href: "/supplements/vitamins-wellness" },
+  { name: "Essential Fats", slug: "essential-fats", count: 1, image: proteinCategoryImage, href: "/supplements/essential-fats" }
 ];
 
 const homepageCategoryImages = new Map(
@@ -607,16 +608,7 @@ function mapCategoryImage(slug: string, index: number) {
 
 function mapCategory(category: WooCategory, index: number): WooCatalogCategory {
   const slug = category.slug || `category-${index}`;
-  const sourceName = category.name || `Category ${index + 1}`;
-  const normalizedName = sourceName.toLowerCase();
-  const name =
-    normalizedName.includes("fish oil") || normalizedName.includes("fish-oil") || normalizedName.includes("whey protein")
-      ? "Protein"
-      : normalizedName.includes("liver axis") || normalizedName.includes("liver-axis") || normalizedName.includes("multivitamin")
-        ? "Multivitamins"
-        : normalizedName.includes("glutamine")
-        ? "Mass Gainer"
-        : sourceName;
+  const name = cleanHtml(category.name) || `Category ${index + 1}`;
   const image = mapHomepageCategoryImage(name, slug) || category.image?.src || mapCategoryImage(slug, index);
 
   return {
@@ -625,24 +617,22 @@ function mapCategory(category: WooCategory, index: number): WooCatalogCategory {
     slug,
     count: category.count ?? 0,
     image,
-    href: `/all-products?category=${encodeURIComponent(slug)}`
+    href: `/supplements/${encodeURIComponent(slug)}`
   };
 }
 
 function categoryPriority(category: WooCatalogCategory) {
-  const normalized = `${category.name} ${category.slug}`.toLowerCase();
-
-  if (normalized.includes("bcaa")) return 0;
-  if (normalized.includes("creatine")) return 1;
-  if (category.slug === "protein" || category.slug === "whey-protein") return 2;
-  if (normalized.includes("protein") || normalized.includes("fish-oil")) return 2.5;
-  if (normalized.includes("pre workout") || normalized.includes("pre-workout")) return 3;
-  if (category.slug === "mass-gainer") return 4;
-  if (normalized.includes("mass gainer") || normalized.includes("mass-gainer")) return 4.5;
-  if (normalized.includes("multivitamin") || normalized.includes("liver-axis")) return 5;
-  if (category.slug === "weight-gainer") return 6;
-
-  return 100;
+  const order = [
+    "protein",
+    "gainer",
+    "pre-workout",
+    "amino-acids",
+    "creatine",
+    "vitamins-wellness",
+    "essential-fats"
+  ];
+  const priority = order.indexOf(category.slug);
+  return priority === -1 ? 100 : priority;
 }
 
 function selectCategories(categories: WooCatalogCategory[], limit: number) {
@@ -661,13 +651,50 @@ function selectCategories(categories: WooCatalogCategory[], limit: number) {
   return Array.from(byDisplayName.values()).slice(0, limit);
 }
 
-export async function getWooCategories(limit = 6): Promise<WooCatalogCategory[]> {
+function useFirstProductImages(categories: WooCatalogCategory[], products: HomeProduct[]) {
+  return categories.map((category) => {
+    const product = products.find((item) => {
+      const slugs = item.categorySlugs ?? [];
+      const names = item.categoryNames ?? [];
+
+      return slugs.includes(category.slug) || names.some((name) => name.toLowerCase() === category.name.toLowerCase());
+    });
+
+    return product?.image ? { ...category, image: product.image } : category;
+  });
+}
+
+async function getWooCategoryProducts(siteUrl: string, consumerKey: string, consumerSecret: string) {
+  const endpoint = new URL("/wp-json/wc/v3/products", siteUrl);
+  endpoint.searchParams.set("status", "publish");
+  endpoint.searchParams.set("per_page", "100");
+  endpoint.searchParams.set("orderby", "date");
+  endpoint.searchParams.set("order", "desc");
+
+  try {
+    const response = await fetch(endpoint, {
+      headers: getWooHeaders(consumerKey, consumerSecret),
+      next: { revalidate: 300 }
+    });
+
+    if (!response.ok) return [];
+
+    const data: unknown = await response.json();
+    return Array.isArray(data)
+      ? data.map((product, index) => mapProduct(product as WooProduct, index)).filter((product) => product.image)
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function getWooCategories(limit = 7): Promise<WooCatalogCategory[]> {
   const siteUrl = process.env.WORDPRESS_SITE_URL;
   const consumerKey = process.env.WOOCOMMERCE_CONSUMER_KEY;
   const consumerSecret = process.env.WOOCOMMERCE_CONSUMER_SECRET;
 
   if (!siteUrl || !consumerKey || !consumerSecret) {
-    return categoryFallbacks.slice(0, limit);
+    return useFirstProductImages(categoryFallbacks, fallbackProducts).slice(0, limit);
   }
 
   const endpoint = new URL("/wp-json/wc/v3/products/categories", siteUrl);
@@ -685,18 +712,23 @@ export async function getWooCategories(limit = 6): Promise<WooCatalogCategory[]>
     });
 
     if (!response.ok) {
-      return categoryFallbacks.slice(0, limit);
+      return useFirstProductImages(categoryFallbacks, fallbackProducts).slice(0, limit);
     }
 
     const data: unknown = await response.json();
 
     if (!Array.isArray(data)) {
-      return categoryFallbacks.slice(0, limit);
+      return useFirstProductImages(categoryFallbacks, fallbackProducts).slice(0, limit);
     }
 
     const categories = data.map((category, index) => mapCategory(category as WooCategory, index));
-    return categories.length > 0 ? selectCategories(categories, limit) : categoryFallbacks.slice(0, limit);
+    if (categories.length === 0) {
+      return useFirstProductImages(categoryFallbacks, fallbackProducts).slice(0, limit);
+    }
+
+    const products = await getWooCategoryProducts(siteUrl, consumerKey, consumerSecret);
+    return selectCategories(useFirstProductImages(categories, products), limit);
   } catch {
-    return categoryFallbacks.slice(0, limit);
+    return useFirstProductImages(categoryFallbacks, fallbackProducts).slice(0, limit);
   }
 }

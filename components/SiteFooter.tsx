@@ -18,12 +18,13 @@ const footerProductsImage =
   "https://admin.ironrootnutrition.com/wp-content/uploads/2026/06/ChatGPT_Image_Jun_16__2026__12_15_06_PM-removebg-preview.png";
 
 const categories = [
-  { label: "Protein", href: "/all-products?category=protein", icon: Package },
-  { label: "Mass Gainer", href: "/all-products?category=mass-gainer", icon: Package },
-  { label: "Pre Workout", href: "/all-products?category=pre-workout", icon: Zap },
-  { label: "Creatine", href: "/all-products?category=creatine", icon: FlaskConical },
-  { label: "BCAA", href: "/all-products?category=bcaa", icon: FlaskConical },
-  { label: "Post Workout", href: "/all-products?category=glutamine", icon: Package }
+  { label: "Protein", href: "/supplements/protein", icon: Package },
+  { label: "Gainer", href: "/supplements/gainer", icon: Package },
+  { label: "Pre Workout", href: "/supplements/pre-workout", icon: Zap },
+  { label: "Amino Acids", href: "/supplements/amino-acids", icon: FlaskConical },
+  { label: "Creatine", href: "/supplements/creatine", icon: FlaskConical },
+  { label: "Vitamins & Wellness", href: "/supplements/vitamins-wellness", icon: Package },
+  { label: "Essential Fats", href: "/supplements/essential-fats", icon: Package }
 ];
 
 const helpLinks = [

@@ -59,7 +59,7 @@ const secondaryProfileMetrics = [
     label: "Shop Again",
     value: "Products",
     action: "Browse",
-    href: "/all-products",
+    href: "/supplements",
     icon: Dumbbell
   }
 ];

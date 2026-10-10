@@ -5,28 +5,58 @@ import type { HomeProduct } from "@/lib/home-data";
 
 export const metadata: Metadata = {
   title: {
-    absolute: "Best Gym Supplements Online | IronRoot Nutrition"
+    absolute: "Gym Supplements for Strength & Performance | IronRoot Nutrition"
   },
   description:
-    "Shop Best gym supplements online from IronRoot Nutrition. Explore quality-focused supplements for strength, muscle support, performance, recovery and everyday fitness."
+    "Shop protein, creatine, pre workout, mass gainer, and wellness supplements from IronRoot Nutrition. Find nutrition for strength, performance, recovery, and everyday fitness.",
+  alternates: {
+    canonical: "/"
+  },
+  openGraph: {
+    title: "Gym Supplements for Strength & Performance | IronRoot Nutrition",
+    description:
+      "Shop protein, creatine, pre workout, mass gainer, and wellness supplements from IronRoot Nutrition.",
+    url: "/",
+    siteName: "IronRoot Nutrition",
+    images: [
+      {
+        url: "/assets/bolero/hero-bolero.webp",
+        width: 1672,
+        height: 941,
+        alt: "IronRoot Nutrition sports supplements"
+      }
+    ],
+    type: "website"
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Gym Supplements for Strength & Performance | IronRoot Nutrition",
+    description:
+      "Shop protein, creatine, pre workout, mass gainer, and wellness supplements from IronRoot Nutrition.",
+    images: ["/assets/bolero/hero-bolero.webp"]
+  }
 };
+
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.ironrootnutrition.com";
 
 const jsonLd = {
   "@context": "https://schema.org",
-  "@type": "Organization",
-  name: "IronRoot Nutrition",
-  url: "https://ironrootnutrition.local",
-  logo: "https://ironrootnutrition.local/assets/bolero/logo.svg",
-  sameAs: [
-    "https://www.instagram.com/shopify/",
-    "https://www.youtube.com/shopify",
-    "https://www.facebook.com/ShopifyNL/"
-  ],
-  contactPoint: {
-    "@type": "ContactPoint",
-    contactType: "Customer service",
-    email: "support@example.com"
-  }
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": `${siteUrl}/#organization`,
+      name: "IronRoot Nutrition",
+      url: siteUrl,
+      logo: `${siteUrl}/assets/bolero/logo.svg`
+    },
+    {
+      "@type": "WebSite",
+      "@id": `${siteUrl}/#website`,
+      name: "IronRoot Nutrition",
+      url: siteUrl,
+      publisher: { "@id": `${siteUrl}/#organization` }
+    }
+  ]
 };
 
 function normalizeProductMatch(value: string) {
